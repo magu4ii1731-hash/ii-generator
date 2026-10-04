@@ -77,7 +77,7 @@ def enhance_and_translate(user_text):
             "Output ONLY the final English words, no quotes, no explanations."
         )
         response = client.chat.completions.create(
-            model="qwen/qwen3-32b",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": system_role},
                 {"role": "user", "content": user_text}
@@ -114,6 +114,10 @@ class NeedPollinationsKey(Exception):
     """Видео требует бесплатный ключ Pollinations."""
     pass
 
+class NoPollenError(Exception):
+    """На аккаунте нет Pollen для оплаты видео."""
+    pass
+
 def generate_video(media_prompt):
     """Генерация видео (MP4) через Pollinations. Возвращает (bytes, описание)."""
     if not POLLINATIONS_KEY:
@@ -129,6 +133,8 @@ def generate_video(media_prompt):
     res = requests.get(url, params=params, headers=_auth_headers(), timeout=300)
     if res.status_code == 401:
         raise NeedPollinationsKey
+    if res.status_code == 402:
+        raise NoPollenError
     res.raise_for_status()
     content_type = res.headers.get("Content-Type", "")
 
@@ -244,6 +250,12 @@ def run_media_tab():
                         st.session_state.current_media_type = "image"
                 st.session_state.meta_info = info
                 st.rerun()
+            except NoPollenError:
+                st.error("💰 Генерация видео платная: на аккаунте Pollinations закончился Pollen.")
+                st.info("Варианты:\n"
+                        "1. Зайдите в кабинет **https://enter.pollinations.ai** → выполните квесты для бесплатного Quest Pollen (фото работают бесплатно).\n"
+                        "2. Или пополните баланс (Top up).\n"
+                        "3. Пока пользуйтесь генерацией фото — она работает без баланса.")
             except NeedPollinationsKey:
                 st.error("🔑 Для генерации видео нужен бесплатный ключ Pollinations.")
                 st.info("1. Зайдите на **https://enter.pollinations.ai** → регистрация за минуту.\n"
@@ -284,7 +296,7 @@ def main():
         st.markdown('<div class="sidebar-card">Модель и креативность для текстов и кода. Медиа генерируются отдельным бесплатным сервером.</div>', unsafe_allow_html=True)
         model_choice = st.selectbox(
             "Модель:",
-            ["llama-3.3-70b-versatile", "qwen/qwen3-32b", "openai/gpt-oss-120b"],
+            ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"],
             index=0
         )
         temperature = st.slider("Креативность (temperature):", 0.0, 1.0, 0.7, 0.1)
