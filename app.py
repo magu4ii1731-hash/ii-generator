@@ -125,7 +125,7 @@ with tab1:
     st.markdown("### 🤖 Создание скриптов и чат-ботов")
     col1, col2 = st.columns(2)
     with col1:
-        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
+        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-крипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
     with col2:
         user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...", key="code_ta")
         
@@ -198,7 +198,8 @@ with tab4:
         if not media_prompt.strip(): 
             st.warning("⚠️ Укажите описание сцены.")
         else:
-            # Исправлено: Добавлен явный визуальный контейнер st.empty() и вывод через PIL
             placeholder = st.empty()
             with placeholder.container():
                 with st.spinner("🚀 Отправка запроса на графический кластер... Ожидайте отрисовки."):
+                    response_obj, meta_info = generate_media_payload(media_prompt, media_type)
+                    
