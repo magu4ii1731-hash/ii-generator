@@ -68,7 +68,7 @@ def enhance_and_translate(user_text, mode="image"):
     except:
         return "beautiful scenery"
 
-# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (С жесткой фильтрацией артефактов ИИ)
+# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА
 def generate_media_payload(media_prompt, media_type):
     try:
         raw_desc = enhance_and_translate(media_prompt, mode="image")
@@ -123,7 +123,7 @@ with tab1:
     st.markdown("### 🤖 Создание скриптов и чат-ботов")
     col1, col2 = st.columns(2)
     with col1:
-        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
+        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-крипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
     with col2:
         user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...")
         
@@ -200,3 +200,4 @@ with tab4:
                 response_obj, meta_info = generate_media_payload(media_prompt, media_type)
                 
                 if response_obj and response_obj.status_code == 200:
+                    st.success("🎉 Визуализация успешно завершена!")
