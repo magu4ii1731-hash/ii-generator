@@ -40,7 +40,7 @@ st.markdown("""
 
 # 3. Проверка безопасности API-ключа Groq
 if "GROQ_API_KEY" not in st.secrets:
-    st.error("❌ Ошибка: API-ключ 'GROQ_API_KEY' не найден in Secrets хостинга!")
+    st.error("❌ Ошибка: API-ключ 'GROQ_API_KEY' не найден в Secrets хостинга!")
     st.stop()
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -67,13 +67,12 @@ def enhance_and_translate(user_text, mode="image"):
     except:
         return "beautiful scenery"
 
-# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (Исправлена опечатка со слэшем)
+# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА
 def generate_media_payload(media_prompt, media_type):
     try:
         enhanced_desc = enhance_and_translate(media_prompt, mode="image")
         seed = random.randint(1, 999999)
         
-        # Исправлено: Добавлен обязательный слэш после pollinations.ai
         if media_type == "Высокоточное Фото (FLUX)":
             full_style = f"{enhanced_desc}, high quality photography"
             encoded_param = urllib.parse.quote_plus(full_style)
@@ -135,7 +134,7 @@ with tab1:
 
 # --- ВКЛАДКА 2: ГЕНЕРАЦИЯ ТЕКСТА И СТАТЕЙ ---
 with tab2:
-    st.markdown("### 📝 Генератор статей и описаний для video")
+    st.markdown("### 📝 Генератор статей и описаний для видео")
     text_mode = st.selectbox("Что нужно сгенерировать?", ["Полноценная статья/Пост", "SEO-описание для Видео (YouTube/Reels)", "Продающий текст"])
     text_topic = st.text_input("Укажите тему или ключевые слова:")
     text_length = st.select_slider("Желаемый объем текста:", options=["Короткий", "Средний", "Развернутый лонгрид"])
@@ -200,3 +199,4 @@ with tab4:
 
 # --- ВКЛАДКА 5: ПОИСК В ИНТЕРНЕТЕ ---
 with tab5:
+    st.markdown("### 🌐 Живой ИИ-Поиск в Интернете (Без ограничений)")
