@@ -29,11 +29,12 @@ if "GROQ_API_KEY" not in st.secrets:
              "Бесплатный ключ: https://console.groq.com/keys")
     st.stop()
 
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+client = Groq(api_key=st.secrets["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
+"])
 
 # Опциональный ключ Pollinations (фото/видео). Бесплатно: https://enter.pollinations.ai
 # В Secrets: POLLINATIONS_API_KEY = "ваш_ключ"
-POLLINATIONS_KEY = st.secrets.get("POLLINATIONS_API_KEY", "")
+POLLINATIONS_KEY = st.secrets.get("sk_wIhXu6CX5LwxqV32qdaScHgSI3mLtMG9", "")
 
 st.markdown("""
     <style>
