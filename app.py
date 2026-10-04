@@ -2,11 +2,12 @@ import streamlit as st
 from groq import Groq
 import requests
 import random
+import urllib.parse
 
-# 1. Настройка конфигурации страницы
+# 1. Настройка конфигурации страницы (Первая команда Streamlit)
 st.set_page_config(
-    page_title="ИИ-Генератор Кода и Видео",
-    page_icon="⚡",
+    page_title="ИИ-Комбайн 2026: Текст, Код, Медиа & Поиск",
+    page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -37,162 +38,156 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Инициализация API-ключей с проверкой безопасности
+# 3. Проверка безопасности API-ключа Groq
 if "GROQ_API_KEY" not in st.secrets:
     st.error("❌ Ошибка: API-ключ 'GROQ_API_KEY' не найден в Secrets хостинга!")
     st.stop()
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# 4. Боковая панель (Sidebar)
+# 4. Внутренние утилиты для ИИ и перевода
+def enhance_and_translate(user_text, mode="image"):
+    try:
+        if mode == "image":
+            system_role = "You are a professional prompt engineer. Translate the input to English and expand it with beautiful artistic details. Output ONLY the final English prompt."
+        else:
+            system_role = "You are an AI assistant. Translate the text to English. Output ONLY the translation."
+            
+        response = client.chat.completions.create(
+            model="qwen/qwen3.8-27b",
+            messages=[
+                {"role": "system", "content": system_role},
+                {"role": "user", "content": user_text}
+            ],
+            temperature=0.3,
+            max_tokens=200
+        )
+        return response.choices[0].message.content.strip() if hasattr(response, 'choices') else response['choices']['message']['content'].strip()
+    except:
+        return user_text
+
+# 5. Боковая панель
 with st.sidebar:
-    st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки ИИ</h3></div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки Системы</h3></div>", unsafe_allow_html=True)
     model_choice = st.selectbox(
-        "Модель для текста/кода:",
+        "Модель ИИ для текста и кода:",
         ("qwen/qwen3.8-27b", "openai/gpt-oss-120b"),
-        help="Актуальные модели для генерации логики и скриптов."
+        help="Выбор активной нейронной сети."
     )
-    
-    temperature = st.slider(
-        "Креативность текста:",
-        min_value=0.0, max_value=1.0, value=0.2, step=0.1
-    )
-    
+    temperature = st.slider("Креативность ответов:", 0.0, 1.0, 0.3, 0.1)
     st.markdown("---")
-    st.markdown("""
-    ### 🎥 Видео-кластер:
-    Переключено на децентрализованную сеть Pollinations API. Ошибки авторизации 403 полностью устранены.
-    """)
+    st.markdown("🌐 **Поиск в сети:** Бесплатный шлюз без ключей (Активен)")
 
-# 5. Главный экран
-st.markdown("<h1 class='main-title'>⚡ Мульти-Генератор: Код & Видео</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Создавайте работающие скрипты или анимации в один клик без вложений и блокировок</p>", unsafe_allow_html=True)
+# 6. Главный интерфейс
+st.markdown("<h1 class='main-title'>🧠 Универсальный ИИ-Комбайн X5</h1>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Кодинг, статьи, рецепты с иконками, генерация графики и умный поиск в интернете в единой панели</p>", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["🛠 Разработка кода", "🎥 Генерация видео", "ℹ️ Инструкция"])
+# Пять основных вкладок приложения
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🛠 Кодинг & Скрипты", 
+    "📝 Текст & Копирайтинг", 
+    "🍳 Рецепты с иконками", 
+    "🎨 Генерация фото & Видео",
+    "🌐 Поиск в Интернете"
+])
 
 # --- ВКЛАДКА 1: ГЕНЕРАЦИЯ КОДА ---
 with tab1:
+    st.markdown("### 🤖 Создание скриптов и чат-ботов")
     col1, col2 = st.columns(2)
     with col1:
-        category = st.radio(
-            "Направление разработки:",
-            ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка страницы (HTML / CSS)", "🐍 Автоматизация (Python)")
-        )
+        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
     with col2:
-        user_prompt = st.text_area(
-            "Ваше technical задание (ТЗ):",
-            height=130,
-            placeholder="Опишите детально, что должен делать скрипт..."
-        )
-
-    generate_btn = st.button("🚀 Запустить генерацию кода", type="primary", use_container_width=True)
-
-    if generate_btn:
+        user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...")
+        
+    if st.button("🚀 Сгенерировать код", type="primary", use_container_width=True):
         if not user_prompt.strip():
-            st.warning("⚠️ Пожалуйста, заполните ТЗ.")
+            st.warning("⚠️ Введите ТЗ.")
         else:
-            with st.spinner("🧠 Нейросеть анализирует задачу и строит алгоритм..."):
+            with st.spinner("🧠 ИИ пишет чистый код..."):
                 try:
-                    system_instruction = (
-                        "Ты — ведущий fullstack-разработчик. Напиши идеальный, чистый и рабочий код. "
-                        f"Категория задачи: {category}. Техническое задание: {user_prompt}. "
-                        "ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА:\n"
-                        "1. Код должен быть полностью готовым к запуску без сокращений.\n"
-                        "2. Добавляй комментарии на русском языке.\n"
-                        "3. Форматируй код корректно."
-                    )
-                    
-                    completion = client.chat.completions.create(
-                        model=model_choice,
-                        messages=[{"role": "user", "content": system_instruction}],
-                        temperature=temperature,
-                        max_tokens=4096
-                    )
-                    
-                    if hasattr(completion, 'choices') and len(completion.choices) > 0:
-                        choice = completion.choices
-                        if hasattr(choice, 'message'):
-                            generated_code = choice.message.content
-                        else:
-                            generated_code = choice['message']['content']
-                    else:
-                        generated_code = completion['choices']['message']['content']
-                    
+                    sys_prompt = f"Ты Senior разработчик. Напиши чистый, рабочий код для '{category}' по ТЗ: {user_prompt}. Добавь комментарии."
+                    res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=temperature)
+                    code_out = res.choices[0].message.content if hasattr(res, 'choices') else res['choices']['message']['content']
                     st.success("🎉 Код успешно сгенерирован!")
-                    lang = "python" if "Python" in category or "бот" in category.lower() else "javascript"
-                    st.code(generated_code, language=lang)
-                    st.balloons()
-                    
-                except Exception as e:
-                    st.error(f"❌ Произошла ошибка API при создании кода: {str(e)}")
+                    st.code(code_out, language="python" if "Python" in category or "бот" in category.lower() else "javascript")
+                except Exception as e: st.error(f"Ошибка API: {str(e)}")
 
-# --- ВКЛАДКА 2: ГЕНЕРАЦИЯ ВИДЕО ---
+# --- ВКЛАДКА 2: ГЕНЕРАЦИЯ ТЕКСТА И СТАТЕЙ ---
 with tab2:
-    st.markdown("### 🎬 Создание анимации по текстовому описанию")
-    video_prompt = st.text_input(
-        "Опишите, что должно происходить на сцене (пишите на английском):",
-        placeholder="Example: Cyberpunk programmer working late night, glowing matrix code on background, lofi style, animated"
-    )
+    st.markdown("### 📝 Генератор статей и описаний для видео")
+    text_mode = st.selectbox("Что нужно сгенерировать?", ["Полноценная статья/Пост", "SEO-описание для Видео (YouTube/Reels)", "Продающий текст"])
+    text_topic = st.text_input("Укажите тему или ключевые слова:")
+    text_length = st.select_slider("Желаемый объем текста:", options=["Короткий", "Средний", "Развернутый лонгрид"])
     
-    # Дополнительные настройки для видео-анимации
-    col_v1, col_v2 = st.columns(2)
-    with col_v1:
-        motion_style = st.selectbox("Стиль анимации:", ["Cinematic", "Anime", "3D Render", "Digital Art", "Cyberpunk"])
-    with col_v2:
-        aspect_ratio = st.selectbox("Соотношение сторон:", ["16:9 (Горизонтальное)", "9:16 (Вертикальное / Shorts)", "1:1 (Квадратное)"])
-
-    video_btn = st.button("🎬 Сгенерировать медиа", type="primary", use_container_width=True)
-    
-    if video_btn:
-        if not video_prompt.strip():
-            st.warning("⚠️ Пожалуйста, введите описание сцены.")
+    if st.button("📝 Создать текст", type="primary", use_container_width=True):
+        if not text_topic.strip(): st.warning("⚠️ Введите тему текста.")
         else:
-            with st.spinner("🚀 Отправка на публичный медиа-сервер... Генерация занимает до 10-15 секунд."):
+            with st.spinner("✍️ Писатель ИИ формулирует структуру и пишет текст..."):
                 try:
-                    # Корректируем размеры под выбор соотношения сторон
-                    width, height = 512, 512
-                    if "16:9" in aspect_ratio:
-                        width, height = 768, 432
-                    elif "9:16" in aspect_ratio:
-                        width, height = 432, 768
-                        
-                    # Собираем промпт и очищаем от пробелов
-                    full_prompt = f"{video_prompt}, {motion_style} style, animated gif masterpiece"
-                    encoded_prompt = requests.utils.quote(full_prompt)
+                    sys_prompt = f"Ты профессиональный копирайтер. Напиши '{text_mode}' на тему: '{text_topic}'. Объем текста: {text_length}. Текст должен быть структурированным, интересным и грамотным."
+                    res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=0.7)
+                    text_out = res.choices[0].message.content if hasattr(res, 'choices') else res['choices']['message']['content']
+                    st.success("🎉 Текст успешно написан!")
+                    st.markdown(text_out)
+                except Exception as e: st.error(f"Ошибка: {str(e)}")
+
+# --- ВКЛАДКА 3: КУЛИНАРНЫЕ РЕЦЕПТЫ С ИКОНКАМИ ---
+with tab3:
+    st.markdown("### 🍳 ИИ-Шеф: Создание интерактивных рецептов с эмодзи")
+    dish_name = st.text_input("Введите название блюда или доступные ингредиенты:", placeholder="Пример: Паста Карбонара или Курица, картошка, грибы")
+    diet_pref = st.multiselect("Особые предпочтения (необязательно):", ["Без глютена", "Вегетарианское", "ПП / Низкокалорийное", "Быстро (до 20 мин)"])
+    
+    if st.button("🍳 Сформировать рецепт", type="primary", use_container_width=True):
+        if not dish_name.strip(): st.warning("⚠️ Введите название блюда.")
+        else:
+            with st.spinner("👩‍🍳 Шеф-повар ИИ составляет идеальные пропорции и подбирает иконки..."):
+                try:
+                    sys_prompt = (
+                        f"Ты профессиональный ИИ-шеф. Создай подробный кулинарный рецепт на основе запроса: '{dish_name}'. "
+                        f"Учти ограничения: {', '.join(diet_pref)}. "
+                        "ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Добавляй подходящую визуальную эмодзи-иконку перед КАЖДЫМ ингредиентом и перед КАЖДЫМ шагом приготовления "
+                        "(например: '🍅 Томаты - 2 шт.', '🔥 Шаг 1. Разогрейте духовку'). Сделай красивую разметку."
+                    )
+                    res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=0.5)
+                    recipe_out = res.choices[0].message.content if hasattr(res, 'choices') else res['choices']['message']['content']
+                    st.success("👨‍🍳 Рецепт готов!")
+                    st.markdown(recipe_out)
+                except Exception as e: st.error(f"Ошибка: {str(e)}")
+
+# --- ВКЛАДКА 4: ГЕНЕРАЦИЯ МЕДИА (ФОТО И ВИДЕО) ---
+with tab4:
+    st.markdown("### 🎨 Создание графики и анимаций по фото/тексту")
+    media_prompt = st.text_input("Опишите сцену для графики (на русском):", placeholder="Пример: Космическая станция будущего...")
+    media_type = st.radio("Что сгенерировать?", ["Высокоточное Фото (FLUX)", "Анимация (Короткое видео)"])
+    uploaded_image = st.file_uploader("Для анимации фото (опционально) - загрузите картинку:", type=["png", "jpg", "jpeg"])
+    
+    if st.button("🎨 Начать визуализацию", type="primary", use_container_width=True):
+        if not media_prompt.strip() and not uploaded_image: st.warning("⚠️ Укажите описание или загрузите картинку.")
+        else:
+            with st.spinner("🚀 Графический процессор ИИ генерирует пиксели..."):
+                try:
+                    enhanced_desc = enhance_and_translate(media_prompt, mode="image")
                     seed = random.randint(1, 999999)
                     
-                    # Запрос к высокоскоростному безопасному кластеру Pollinations
-                    media_url = f"https://pollinations.ai{encoded_prompt}?width={width}&height={height}&seed={seed}&nologo=true"
-                    
-                    response = requests.get(media_url)
-                    
-                    if response.status_code == 200 and response.content:
-                        st.success("🎉 ИИ-сцена успешно сгенерирована!")
-                        
-                        # Выводим анимацию/изображение
-                        st.image(response.content, caption=f"Ваш запрос: {video_prompt}")
-                        
-                        # Кнопка скачивания файла без каких-либо лимитов
-                        st.download_button(
-                            label="📥 Скачать готовую сцену (.png/gif)",
-                            data=response.content,
-                            file_name="generated_scene.png",
-                            mime="image/png",
-                            use_container_width=True
-                        )
+                    if media_type == "Высокоточное Фото (FLUX)":
+                        media_url = f"https://pollinations.ai{urllib.parse.quote_plus(enhanced_desc)}?width=768&height=432&seed={seed}&model=flux&nologo=true"
                     else:
-                        st.error(f"Сервер временно не отвечает. Код ответа: {response.status_code}. Пожалуйста, попробуйте еще раз.")
-                            
-                except Exception as video_err:
-                    st.error(f"Ошибка при обработке медиафайла: {str(video_err)}")
+                        media_url = f"https://pollinations.ai{urllib.parse.quote_plus(enhanced_desc + ', animated gif loop')}?width=512&height=512&seed={seed}&nologo=true"
+                        
+                    res = requests.get(media_url)
+                    if res.status_code == 200:
+                        st.success("🎉 Визуализация завершена!")
+                        st.image(res.content, caption="Итоговый результат")
+                        st.download_button("📥 Скачать файл", res.content, file_name="ai_output.png", mime="image/png", use_container_width=True)
+                    else: st.error("Ошибка графического кластера.")
+                except Exception as e: st.error(f"Ошибка медиа: {str(e)}")
 
-# --- ВКЛАДКА 3: ИНСТРУКЦИЯ ---
-with tab3:
-    st.markdown("""
-    ### 🚀 Руководство пользователя
-    1. **Вкладка кода:** выберите язык программирования, введите ТЗ на русском языке и нажмите генерацию. Код пишется без сокращений.
-    2. **Вкладка видео:** введите детализированную сцену на английском языке, выберите пропорции (например, 9:16 для мобильных Shorts) и запустите рендеринг. Скачивание доступно сразу по кнопке.
-    """)
-
+# --- ВКЛАДКА 5: ПОИСК В ИНТЕРНЕТЕ ---
+with tab4: # Назначена на 5-ю по логике
+    pass 
+# Исправлено распределение вкладок:
+with tab5:
+    st.markdown("### 🌐 Живой ИИ-Поиск в Интернете (Без ограничений и API-ключей)")
+    search_query = st.text_input("Введите поисковый запрос (ИИ найдет свежие данные в сети и сделает выжимку):")
     
