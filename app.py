@@ -44,14 +44,34 @@ if "GROQ_API_KEY" not in st.secrets:
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # 4. Боковая панель (Sidebar)
+# 4. Боковая панель (Sidebar)
 with st.sidebar:
     st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки Groq ИИ</h3></div>", unsafe_allow_html=True)
     
-    # Выбор модели. Используем актуальные на 2026 год модели Llama от Meta
-      model_choice = st.selectbox(
+    # Все строки ниже имеют ровно 4 пробела отступа от левого края
+    model_choice = st.selectbox(
         "Выберите модель:",
-        ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
-        help="Модель 70b пишет код более профессионально, 8b работает максимально молниеносно."
+        ("llama-3.3-70b-specdec", "llama3-70b-8192", "llama-3.1-8b-instant"),
+        help="Модели 70b пишут код профессионально, а 8b работает максимально молниеносно."
+    )
+    
+    temperature = st.slider(
+        "Креативность (Temperature):",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.2,
+        step=0.1,
+        help="Для генерации точного и рабочего кода рекомендуется значение 0.1 - 0.2."
+    )
+    
+    st.markdown("---")
+    st.markdown("""
+    ### 💡 Идеи для ТЗ:
+    * *Скрипт на JS, который плавно прокручивает страницу до якоря при клике на меню.*
+    * *Telegram-бот на aiogram v3, который присылает пользователю случайную цитату по кнопке.*
+    * *Красивая HTML/CSS карточка товара с кнопкой 'Купить' и анимацией при наведении.*
+    """)
+
     )
 
     )
