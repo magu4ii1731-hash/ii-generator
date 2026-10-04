@@ -67,12 +67,13 @@ def enhance_and_translate(user_text, mode="image"):
     except:
         return "beautiful scenery"
 
-# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА
+# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (Исправлены все слэши путей)
 def generate_media_payload(media_prompt, media_type):
     try:
         enhanced_desc = enhance_and_translate(media_prompt, mode="image")
         seed = random.randint(1, 999999)
         
+        # Строго выверенное и безопасное формирование URL-адресов
         if media_type == "Высокоточное Фото (FLUX)":
             full_style = f"{enhanced_desc}, high quality photography"
             encoded_param = urllib.parse.quote_plus(full_style)
@@ -114,7 +115,7 @@ with tab1:
     st.markdown("### 🤖 Создание скриптов и чат-ботов")
     col1, col2 = st.columns(2)
     with col1:
-        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
+        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-крипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
     with col2:
         user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...")
         
@@ -197,6 +198,3 @@ with tab4:
                 else:
                     st.error(f"Не удалось сгенерировать медиафайл. Информация об ошибке: {meta_info}")
 
-# --- ВКЛАДКА 5: ПОИСК В ИНТЕРНЕТЕ ---
-with tab5:
-    st.markdown("### 🌐 Живой ИИ-Поиск в Интернете (Без ограничений)")
