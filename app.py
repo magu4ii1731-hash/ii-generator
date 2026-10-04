@@ -1,6 +1,7 @@
 import streamlit as st
 from groq import Groq
 import requests
+import random
 
 # 1. Настройка конфигурации страницы
 st.set_page_config(
@@ -41,12 +42,7 @@ if "GROQ_API_KEY" not in st.secrets:
     st.error("❌ Ошибка: API-ключ 'GROQ_API_KEY' не найден в Secrets хостинга!")
     st.stop()
 
-if "HF_TOKEN" not in st.secrets:
-    st.error("❌ Ошибка: Токен 'HF_TOKEN' не найден в Secrets хостинга! Получите его бесплатно на huggingface.co")
-    st.stop()
-
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-hf_token = st.secrets["HF_TOKEN"]
 
 # 4. Боковая панель (Sidebar)
 with st.sidebar:
@@ -65,13 +61,13 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("""
-    ### 🎥 Видео-сервер:
-    Авторизация через токен Hugging Face успешно настроена. Запросы защищены от блокировок 403.
+    ### 🎥 Видео-кластер:
+    Переключено на децентрализованную сеть Pollinations API. Ошибки авторизации 403 полностью устранены.
     """)
 
 # 5. Главный экран
 st.markdown("<h1 class='main-title'>⚡ Мульти-Генератор: Код & Видео</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Создавайте работающие скрипты или короткие видео-анимации в один клик без вложений</p>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Создавайте работающие скрипты или анимации в один клик без вложений и блокировок</p>", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["🛠 Разработка кода", "🎥 Генерация видео", "ℹ️ Инструкция"])
 
@@ -85,7 +81,7 @@ with tab1:
         )
     with col2:
         user_prompt = st.text_area(
-            "Ваше техническое задание (ТЗ):",
+            "Ваше technical задание (ТЗ):",
             height=130,
             placeholder="Опишите детально, что должен делать скрипт..."
         )
@@ -114,15 +110,14 @@ with tab1:
                         max_tokens=4096
                     )
                     
-                    # Безопасное извлечение текста ответа ИИ
                     if hasattr(completion, 'choices') and len(completion.choices) > 0:
-                        choice = completion.choices[0]
+                        choice = completion.choices
                         if hasattr(choice, 'message'):
                             generated_code = choice.message.content
                         else:
                             generated_code = choice['message']['content']
                     else:
-                        generated_code = completion['choices'][0]['message']['content']
+                        generated_code = completion['choices']['message']['content']
                     
                     st.success("🎉 Код успешно сгенерирован!")
                     lang = "python" if "Python" in category or "бот" in category.lower() else "javascript"
@@ -134,55 +129,60 @@ with tab1:
 
 # --- ВКЛАДКА 2: ГЕНЕРАЦИЯ ВИДЕО ---
 with tab2:
-    st.markdown("### 🎬 Создание видео по текстовому описанию")
+    st.markdown("### 🎬 Создание анимации по текстовому описанию")
     video_prompt = st.text_input(
-        "Опишите, что должно происходить на видео (пишите на английском):",
-        placeholder="Example: A futuristic cybernetic city at night, flying cars, rain, neon glows, unreal engine 5 render, cinematic"
+        "Опишите, что должно происходить на сцене (пишите на английском):",
+        placeholder="Example: Cyberpunk programmer working late night, glowing matrix code on background, lofi style, animated"
     )
     
-    video_btn = st.button("🎬 Сгенерировать видео", type="primary", use_container_width=True)
+    # Дополнительные настройки для видео-анимации
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        motion_style = st.selectbox("Стиль анимации:", ["Cinematic", "Anime", "3D Render", "Digital Art", "Cyberpunk"])
+    with col_v2:
+        aspect_ratio = st.selectbox("Соотношение сторон:", ["16:9 (Горизонтальное)", "9:16 (Вертикальное / Shorts)", "1:1 (Квадратное)"])
+
+    video_btn = st.button("🎬 Сгенерировать медиа", type="primary", use_container_width=True)
     
     if video_btn:
         if not video_prompt.strip():
-            st.warning("⚠️ Пожалуйста, введите описание для видеоролика.")
+            st.warning("⚠️ Пожалуйста, введите описание сцены.")
         else:
-            with st.spinner("🚀 Авторизация пройдена. Нейросеть генерирует видеоряд... Это может занять около 1 минуты."):
+            with st.spinner("🚀 Отправка на публичный медиа-сервер... Генерация занимает до 10-15 секунд."):
                 try:
-                    # Используем актуальный и стабильный API инференса видео-моделей
-                    API_URL = "https://huggingface.co"
-                    
-                    # Добавляем наш бесплатный токен для обхода ошибки 403
-                    headers = {
-                        "Authorization": f"Bearer {hf_token}",
-                        "Content-Type": "application/json"
-                    }
-                    payload = {"inputs": video_prompt}
-                    
-                    response = requests.post(API_URL, json=payload, headers=headers)
-                    
-                    # Проверяем успешность авторизации и генерации
-                    if response.status_code == 200 and response.content:
-                        st.success("🎉 Видеоряд успешно создан!")
-                        st.video(response.content)
-                        st.download_button(
-                            label="📥 Скачать готовое видео (.mp4)",
-                            data=response.content,
-                            file_name="generated_video.mp4",
-                            mime="video/mp4"
-                        )
-                    elif response.status_code == 503:
-                        st.info("🔄 Сервер Hugging Face сейчас прогревает модель. Пожалуйста, подождите 15 секунд и нажмите кнопку генерации повторно.")
-                    else:
-                        # Резервный моментальный метод при перегрузках: генерация качественного концепт-арта через SDXL
-                        st.info("🔄 Перенаправление на резервный высокоскоростной кластер...")
-                        ALT_URL = "https://huggingface.co"
-                        img_resp = requests.post(ALT_URL, json={"inputs": video_prompt}, headers=headers)
+                    # Корректируем размеры под выбор соотношения сторон
+                    width, height = 512, 512
+                    if "16:9" in aspect_ratio:
+                        width, height = 768, 432
+                    elif "9:16" in aspect_ratio:
+                        width, height = 432, 768
                         
-                        if img_resp.status_code == 200:
-                            st.success("🎉 Сгенерирована ИИ-сцена по вашему запросу!")
-                            st.image(img_resp.content, caption="Итоговый сгенерированный кадр вашего видео ТЗ")
-                        else:
-                            st.error(f"Не удалось получить доступ к ИИ серверам. Код ответа сервера: {img_resp.status_code}. Проверьте правильность токена HF_TOKEN.")
+                    # Собираем промпт и очищаем от пробелов
+                    full_prompt = f"{video_prompt}, {motion_style} style, animated gif masterpiece"
+                    encoded_prompt = requests.utils.quote(full_prompt)
+                    seed = random.randint(1, 999999)
+                    
+                    # Запрос к высокоскоростному безопасному кластеру Pollinations
+                    media_url = f"https://pollinations.ai{encoded_prompt}?width={width}&height={height}&seed={seed}&nologo=true"
+                    
+                    response = requests.get(media_url)
+                    
+                    if response.status_code == 200 and response.content:
+                        st.success("🎉 ИИ-сцена успешно сгенерирована!")
+                        
+                        # Выводим анимацию/изображение
+                        st.image(response.content, caption=f"Ваш запрос: {video_prompt}")
+                        
+                        # Кнопка скачивания файла без каких-либо лимитов
+                        st.download_button(
+                            label="📥 Скачать готовую сцену (.png/gif)",
+                            data=response.content,
+                            file_name="generated_scene.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    else:
+                        st.error(f"Сервер временно не отвечает. Код ответа: {response.status_code}. Пожалуйста, попробуйте еще раз.")
                             
                 except Exception as video_err:
                     st.error(f"Ошибка при обработке медиафайла: {str(video_err)}")
@@ -191,6 +191,8 @@ with tab2:
 with tab3:
     st.markdown("""
     ### 🚀 Руководство пользователя
-    1. **Вкладка кода:** выберите язык программирования, введите ТЗ на русском языке и заберите готовый скрипт без заглушек.
-    2. **Вкладка видео:** введите детализированную сцену (желательно ключевыми словами через запятую на английском языке) и подождите ответа нейросети. Полученный ролик можно крутить прямо в браузере или скачать на жесткий диск.
+    1. **Вкладка кода:** выберите язык программирования, введите ТЗ на русском языке и нажмите генерацию. Код пишется без сокращений.
+    2. **Вкладка видео:** введите детализированную сцену на английском языке, выберите пропорции (например, 9:16 для мобильных Shorts) и запустите рендеринг. Скачивание доступно сразу по кнопке.
     """)
+
+    
