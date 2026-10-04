@@ -40,7 +40,7 @@ st.markdown("""
 
 # 3. Проверка безопасности API-ключа Groq
 if "GROQ_API_KEY" not in st.secrets:
-    st.error("❌ Ошибка: API-ключ 'GROQ_API_KEY' не найден в Secrets хостинга!")
+    st.error("❌ Ошибка: API-ключ 'GROQ_API_KEY' не найден in Secrets хостинга!")
     st.stop()
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -67,12 +67,13 @@ def enhance_and_translate(user_text, mode="image"):
     except:
         return "beautiful scenery"
 
-# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (Решает проблему с отступами раз и навсегда)
+# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (Исправлена опечатка со слэшем)
 def generate_media_payload(media_prompt, media_type):
     try:
         enhanced_desc = enhance_and_translate(media_prompt, mode="image")
         seed = random.randint(1, 999999)
         
+        # Исправлено: Добавлен обязательный слэш после pollinations.ai
         if media_type == "Высокоточное Фото (FLUX)":
             full_style = f"{enhanced_desc}, high quality photography"
             encoded_param = urllib.parse.quote_plus(full_style)
@@ -188,7 +189,6 @@ with tab4:
             st.warning("⚠️ Укажите описание сцены.")
         else:
             with st.spinner("🚀 ИИ обрабатывает промпт и генерирует медиафайл..."):
-                # Вызываем изолированную функцию
                 response_obj, meta_info = generate_media_payload(media_prompt, media_type)
                 
                 if response_obj and response_obj.status_code == 200:
@@ -198,3 +198,5 @@ with tab4:
                 else:
                     st.error(f"Не удалось сгенерировать медиафайл. Информация об ошибке: {meta_info}")
 
+# --- ВКЛАДКА 5: ПОИСК В ИНТЕРНЕТЕ ---
+with tab5:
