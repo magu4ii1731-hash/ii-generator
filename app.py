@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Инициализация кэша сессии
+# Инициализация кэша сессии для медиафайлов
 if "generated_media" not in st.session_state:
     st.session_state.generated_media = None
 if "meta_info" not in st.session_state:
@@ -31,7 +31,7 @@ if "GROQ_API_KEY" not in st.secrets:
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Кастомные CSS-стили
+# Кастомные CSS-стили для современного интерфейса
 st.markdown("""
     <style>
     .main-title {
@@ -86,8 +86,10 @@ def generate_media_payload(media_prompt, media_type):
     try:
         raw_desc = enhance_and_translate(media_prompt)
         cleaned_desc = raw_desc.replace("pollinations.ai", "").replace("pollinations", "").strip()
-        if cleaned_desc.startswith("p/"): cleaned_desc = cleaned_desc[2:]
-        if cleaned_desc.startswith("/"): cleaned_desc = cleaned_desc[1:]
+        if cleaned_desc.startswith("p/"): 
+            cleaned_desc = cleaned_desc[2:]
+        if cleaned_desc.startswith("/"): 
+            cleaned_desc = cleaned_desc[1:]
             
         seed = random.randint(1, 999999)
         
@@ -182,7 +184,7 @@ def run_media_tab():
         if not media_prompt.strip():
             st.warning("⚠️ Укажите описание сцены.")
         else:
-            with st.spinner("🚀 Отправка запроса на графический кластер... Ожидайте отрисовки."):
+            with st.spinner("🚀 ИИ обрабатывает промпт и генерирует медиафайл..."):
                 response_obj, meta_info = generate_media_payload(media_prompt, media_type)
                 if response_obj and response_obj.status_code == 200:
                     st.session_state.generated_media = response_obj.content
@@ -191,4 +193,3 @@ def run_media_tab():
                 else:
                     st.error(f"Графический сервер не ответил. Информация: {meta_info}")
 
-    if st.session_state.generated_media is not None:
