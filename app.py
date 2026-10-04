@@ -19,6 +19,8 @@ if "generated_media" not in st.session_state:
     st.session_state.generated_media = None
 if "meta_info" not in st.session_state:
     st.session_state.meta_info = ""
+if "current_media_type" not in st.session_state:
+    st.session_state.current_media_type = ""
 
 # 3. Кастомные CSS-стили
 st.markdown("""
@@ -202,5 +204,3 @@ with tab4:
     
     if st.button("🎨 Начать визуализацию", type="primary", use_container_width=True):
         if not media_prompt.strip(): 
-            st.warning("⚠️ Укажите описание сцены.")
-        else:
