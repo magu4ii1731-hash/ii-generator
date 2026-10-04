@@ -96,7 +96,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🛠 Кодинг & Скрипты", 
     "📝 Текст & Копирайтинг", 
     "🍳 Рецепты с иконками", 
-    "🎨 Font & Видео",
+    "🎨 Фото & Видео",
     "🌐 Поиск в Интернете"
 ])
 
@@ -192,5 +192,5 @@ with tab4:
                         full_style = f"{enhanced_desc}, simple motion animation loop"
                         encoded_param = urllib.parse.quote_plus(full_style)
                         media_url = f"https://pollinations.ai{encoded_param}?width=512&height=512&seed={seed}&nologo=true"
-                        
+                    
                     res = requests.get(media_url)
