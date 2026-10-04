@@ -48,10 +48,12 @@ with st.sidebar:
     st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки Groq ИИ</h3></div>", unsafe_allow_html=True)
     
     # Выбор модели. Используем актуальные на 2026 год модели Llama от Meta
-    model_choice = st.selectbox(
+      model_choice = st.selectbox(
         "Выберите модель:",
         ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
         help="Модель 70b пишет код более профессионально, 8b работает максимально молниеносно."
+    )
+
     )
     
     temperature = st.slider(
