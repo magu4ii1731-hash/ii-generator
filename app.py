@@ -31,6 +31,10 @@ if "GROQ_API_KEY" not in st.secrets:
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
+# Опциональный ключ Pollinations (фото/видео). Бесплатно: https://enter.pollinations.ai
+# В Secrets: POLLINATIONS_API_KEY = "ваш_ключ"
+POLLINATIONS_KEY = st.secrets.get("POLLINATIONS_API_KEY", "")
+
 st.markdown("""
     <style>
     .main-title {
@@ -95,22 +99,34 @@ def generate_image(media_prompt):
     seed = random.randint(1, 999999)
     full_prompt = f"{cleaned}, high quality photography"
     encoded = urllib.parse.quote_plus(full_prompt)
-    url = f"{POLLINATIONS_BASE}/image/{encoded}?width=768&height=432&seed={seed}&model=flux&nologo=true"
-    res = requests.get(url, timeout=120)
+    params = {"width": 768, "height": 432, "seed": seed, "model": "flux", "nologo": "true"}
+    if POLLINATIONS_KEY:
+        params["token"] = POLLINATIONS_KEY
+    url = f"{POLLINATIONS_BASE}/image/{encoded}"
+    res = requests.get(url, params=params, timeout=120)
     res.raise_for_status()
     return res.content, cleaned
 
+class NeedPollinationsKey(Exception):
+    """Видео требует бесплатный ключ Pollinations."""
+    pass
+
 def generate_video(media_prompt):
     """Генерация видео (MP4) через Pollinations. Возвращает (bytes, описание)."""
+    if not POLLINATIONS_KEY:
+        raise NeedPollinationsKey
     raw_desc = enhance_and_translate(media_prompt)
     cleaned = raw_desc.replace("pollinations", "").strip()
     seed = random.randint(1, 999999)
     full_prompt = f"{cleaned}, cinematic smooth motion"
     encoded = urllib.parse.quote_plus(full_prompt)
-    url = f"{POLLINATIONS_BASE}/video/{encoded}?width=512&height=512&seed={seed}&nologo=true"
+    params = {"width": 512, "height": 512, "seed": seed, "nologo": "true", "token": POLLINATIONS_KEY}
+    url = f"{POLLINATIONS_BASE}/video/{encoded}"
 
     # Видео генерируется асинхронно: сначала может вернуться JSON со ссылкой на опрос
-    res = requests.get(url, timeout=300)
+    res = requests.get(url, params=params, timeout=300)
+    if res.status_code == 401:
+        raise NeedPollinationsKey
     res.raise_for_status()
     content_type = res.headers.get("Content-Type", "")
 
@@ -205,7 +221,7 @@ def run_recipes_tab(model_choice):
 
 def run_media_tab():
     st.markdown("### 🎨 Генерация фото и видео по тексту")
-    st.caption("Бесплатный медиа-сервер Pollinations — без ключа. Видео генерируется 1–3 минуты.")
+    st.caption("Фото — без ключа. Видео требует бесплатный ключ Pollinations (https://enter.pollinations.ai) → добавьте его в Secrets как POLLINATIONS_API_KEY.")
     media_prompt = st.text_input("Опишите сцену (на русском):", placeholder="Пример: Парень и девушка идут по лесу...", key="media_ti")
     media_type = st.radio("Что сгенерировать?", ["Высокоточное Фото (FLUX)", "🎬 Видео (MP4)"], horizontal=True)
 
@@ -226,6 +242,12 @@ def run_media_tab():
                         st.session_state.current_media_type = "image"
                 st.session_state.meta_info = info
                 st.rerun()
+            except NeedPollinationsKey:
+                st.error("🔑 Для генерации видео нужен бесплатный ключ Pollinations.")
+                st.info("1. Зайдите на **https://enter.pollinations.ai** → регистрация за минуту.\n"
+                        "2. Скопируйте API-ключ.\n"
+                        "3. В Streamlit Cloud: **Settings → Secrets** добавьте строку:\n"
+                        "`POLLINATIONS_API_KEY = \"ваш_ключ\"`")
             except Exception as e:
                 st.error(f"Графический сервер не ответил: {e}")
 
