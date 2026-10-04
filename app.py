@@ -50,7 +50,8 @@ def enhance_and_translate(user_text, mode="image"):
     try:
         system_role = (
             "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
-            "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15-20 WORDS). Just output key objects separated by commas. "
+            "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15 WORDS). Just output key objects separated by commas. "
+            "DO NOT include any URLs, website names, or domains like 'pollinations.ai' in your response. "
             "Output ONLY the final English words, no quotes, no explanations."
         )
         response = client.chat.completions.create(
@@ -59,32 +60,39 @@ def enhance_and_translate(user_text, mode="image"):
                 {"role": "system", "content": system_role},
                 {"role": "user", "content": user_text}
             ],
-            temperature=0.2,
-            max_tokens=60
+            temperature=0.1,
+            max_tokens=40
         )
         result = response.choices.message.content.strip() if hasattr(response, 'choices') else response['choices']['message']['content'].strip()
         return result.replace('"', '').replace("'", "")
     except:
         return "beautiful scenery"
 
-# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (Исправлены все слэши путей)
+# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (С жесткой фильтрацией артефактов ИИ)
 def generate_media_payload(media_prompt, media_type):
     try:
-        enhanced_desc = enhance_and_translate(media_prompt, mode="image")
+        raw_desc = enhance_and_translate(media_prompt, mode="image")
+        
+        # Жесткая очистка: удаляем возможные склейки домена, которые генерирует ИИ
+        cleaned_desc = raw_desc.replace("pollinations.ai", "").replace("pollinations", "").strip()
+        if cleaned_desc.startswith("p/"):
+            cleaned_desc = cleaned_desc[2:]
+        if cleaned_desc.startswith("/"):
+            cleaned_desc = cleaned_desc[1:]
+            
         seed = random.randint(1, 999999)
         
-        # Строго выверенное и безопасное формирование URL-адресов
         if media_type == "Высокоточное Фото (FLUX)":
-            full_style = f"{enhanced_desc}, high quality photography"
+            full_style = f"{cleaned_desc}, high quality photography"
             encoded_param = urllib.parse.quote_plus(full_style)
             media_url = f"https://pollinations.ai{encoded_param}?width=768&height=432&seed={seed}&model=flux&nologo=true"
         else:
-            full_style = f"{enhanced_desc}, simple motion animation loop"
+            full_style = f"{cleaned_desc}, simple motion animation loop"
             encoded_param = urllib.parse.quote_plus(full_style)
             media_url = f"https://pollinations.ai{encoded_param}?width=512&height=512&seed={seed}&nologo=true"
             
         res = requests.get(media_url)
-        return res, enhanced_desc
+        return res, cleaned_desc
     except Exception as e:
         return None, str(e)
 
@@ -115,7 +123,7 @@ with tab1:
     st.markdown("### 🤖 Создание скриптов и чат-ботов")
     col1, col2 = st.columns(2)
     with col1:
-        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-крипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
+        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
     with col2:
         user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...")
         
@@ -192,9 +200,3 @@ with tab4:
                 response_obj, meta_info = generate_media_payload(media_prompt, media_type)
                 
                 if response_obj and response_obj.status_code == 200:
-                    st.success("🎉 Визуализация успешно завершена!")
-                    st.image(response_obj.content, caption=f"Оптимизированный промпт ИИ: {meta_info}")
-                    st.download_button("📥 Скачать файл", response_obj.content, file_name="ai_output.png", mime="image/png", use_container_width=True)
-                else:
-                    st.error(f"Не удалось сгенерировать медиафайл. Информация об ошибке: {meta_info}")
-
