@@ -1,7 +1,7 @@
 import streamlit as st
 from groq import Groq
 
-# 1. Настройка конфигурации страницы
+# 1. Настройка конфигурации страницы (должна быть строго первой командой Streamlit)
 st.set_page_config(
     page_title="Groq ИИ-Генератор",
     page_icon="⚡",
@@ -44,36 +44,14 @@ if "GROQ_API_KEY" not in st.secrets:
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # 4. Боковая панель (Sidebar)
-# 4. Боковая панель (Sidebar)
 with st.sidebar:
     st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки Groq ИИ</h3></div>", unsafe_allow_html=True)
     
-    # Все строки ниже имеют ровно 4 пробела отступа от левого края
+    # Выбор актуальных моделей
     model_choice = st.selectbox(
         "Выберите модель:",
         ("llama-3.3-70b-specdec", "llama3-70b-8192", "llama-3.1-8b-instant"),
         help="Модели 70b пишут код профессионально, а 8b работает максимально молниеносно."
-    )
-    
-    temperature = st.slider(
-        "Креативность (Temperature):",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.2,
-        step=0.1,
-        help="Для генерации точного и рабочего кода рекомендуется значение 0.1 - 0.2."
-    )
-    
-    st.markdown("---")
-    st.markdown("""
-    ### 💡 Идеи для ТЗ:
-    * *Скрипт на JS, который плавно прокручивает страницу до якоря при клике на меню.*
-    * *Telegram-бот на aiogram v3, который присылает пользователю случайную цитату по кнопке.*
-    * *Красивая HTML/CSS карточка товара с кнопкой 'Купить' и анимацией при наведении.*
-    """)
-
-    )
-
     )
     
     temperature = st.slider(
@@ -100,6 +78,7 @@ st.markdown("<p class='sub-title'>Мгновенное создание кода
 tab1, tab2 = st.tabs(["🛠 Разработка кода", "ℹ️ Инструкция по запуску"])
 
 with tab1:
+    # Исправлено: передаем аргумент 2 для создания двух равных колонок
     col1, col2 = st.columns(2)
     
     with col1:
@@ -151,7 +130,7 @@ with tab1:
                     )
                     
                     # Извлечение текста ответа
-                    generated_code = completion.choices[0].message.content
+                    generated_code = completion.choices.message.content
                     
                     st.success("🎉 Код успешно сгенерирован за доли секунды!")
                     
@@ -165,7 +144,7 @@ with tab1:
                     
                 except Exception as e:
                     st.error(f"❌ Произошла ошибка API: {str(e)}")
-                    st.info("Проверьте правильность добавления GROQ_API_KEY в разделы настроек.")
+                    st.info("Проверьте правильность добавления GROQ_API_KEY в разделы настроек Secrets.")
 
 with tab2:
     st.markdown("""
