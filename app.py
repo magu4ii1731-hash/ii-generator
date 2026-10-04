@@ -3,13 +3,13 @@ from groq import Groq
 
 # 1. Настройка конфигурации страницы (должна быть строго первой командой Streamlit)
 st.set_page_config(
-    page_title="Groq ИИ-Генератор",
+    page_title="Groq ИИ-Генератор скриптов",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 2. Кастомные CSS-стили для интерфейса
+# 2. Кастомные CSS-стили для современного интерфейса
 st.markdown("""
     <style>
     .main-title {
@@ -47,11 +47,11 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 with st.sidebar:
     st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки Groq ИИ</h3></div>", unsafe_allow_html=True)
     
-    # Выбор актуальных моделей
+    # Использование актуальных моделей поколения 2026 года
     model_choice = st.selectbox(
         "Выберите модель:",
-        ("llama-3.3-70b-specdec", "llama3-70b-8192", "llama-3.1-8b-instant"),
-        help="Модели 70b пишут код профессионально, а 8b работает максимально молниеносно."
+        ("qwen/qwen3.8-27b", "openai/gpt-oss-120b"),
+        help="Модели нового поколения. Отлично справляются с написанием сложного кода и логики ботов."
     )
     
     temperature = st.slider(
@@ -73,12 +73,12 @@ with st.sidebar:
 
 # 5. Главный экран
 st.markdown("<h1 class='main-title'>⚡ Ultra-Fast ИИ-Генератор Скриптов</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Мгновенное создание кода без VPN ограничений на базе мощных Llama моделей от Meta</p>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Мгновенное создание кода без VPN ограничений на базе актуальных моделей ИИ</p>", unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["🛠 Разработка кода", "ℹ️ Инструкция по запуску"])
 
 with tab1:
-    # Исправлено: передаем аргумент 2 для создания двух равных колонок
+    # Исправлено: явно передаем количество колонок (2) для предотвращения TypeError
     col1, col2 = st.columns(2)
     
     with col1:
@@ -106,7 +106,7 @@ with tab1:
         if not user_prompt.strip():
             st.warning("⚠️ Пожалуйста, заполните ТЗ.")
         else:
-            with st.spinner("🧠 Нейросеть Llama анализирует задачу и строит алгоритм..."):
+            with st.spinner("🧠 Нейросеть анализирует задачу и строит алгоритм..."):
                 try:
                     # Формируем системные требования разработчика
                     system_instruction = (
@@ -132,9 +132,9 @@ with tab1:
                     # Извлечение текста ответа
                     generated_code = completion.choices.message.content
                     
-                    st.success("🎉 Код успешно сгенерирован за доли секунды!")
+                    st.success("🎉 Код успешно сгенерирован!")
                     
-                    # Определение подсветки синтаксиса
+                    # Определение подсветки синтаксиса в окне вывода
                     lang = "python" if "Python" in category or "бот" in category.lower() else "javascript"
                     
                     st.markdown("### 📋 Сгенерированный код:")
@@ -144,7 +144,7 @@ with tab1:
                     
                 except Exception as e:
                     st.error(f"❌ Произошла ошибка API: {str(e)}")
-                    st.info("Проверьте правильность добавления GROQ_API_KEY в разделы настроек Secrets.")
+                    st.info("Проверьте правильность добавления токена GROQ_API_KEY в разделы настроек Secrets хостинга.")
 
 with tab2:
     st.markdown("""
