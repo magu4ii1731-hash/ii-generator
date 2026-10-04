@@ -67,11 +67,10 @@ def enhance_and_translate(user_text, mode="image"):
                 {"role": "system", "content": system_role},
                 {"role": "user", "content": user_text}
             ],
-            temperature=0.2, # Снизили температуру для строгости
+            temperature=0.2,
             max_tokens=60
         )
         result = response.choices.message.content.strip() if hasattr(response, 'choices') else response['choices']['message']['content'].strip()
-        # Очищаем от возможных кавычек, которые ИИ иногда добавляет
         return result.replace('"', '').replace("'", "")
     except:
         return "beautiful scenery"
@@ -97,7 +96,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🛠 Кодинг & Скрипты", 
     "📝 Текст & Копирайтинг", 
     "🍳 Рецепты с иконками", 
-    "🎨 Генерация фото & Видео",
+    "🎨 Font & Видео",
     "🌐 Поиск в Интернете"
 ])
 
@@ -121,7 +120,8 @@ with tab1:
                     code_out = res.choices.message.content if hasattr(res, 'choices') else res['choices']['message']['content']
                     st.success("🎉 Код успешно сгенерирован!")
                     st.code(code_out, language="python" if "Python" in category or "бот" in category.lower() else "javascript")
-                except Exception as e: st.error(f"Ошибка API: {str(e)}")
+                except Exception as e: 
+                    st.error(f"Ошибка API: {str(e)}")
 
 # --- ВКЛАДКА 2: ГЕНЕРАЦИЯ ТЕКСТА И СТАТЕЙ ---
 with tab2:
@@ -131,7 +131,8 @@ with tab2:
     text_length = st.select_slider("Желаемый объем текста:", options=["Короткий", "Средний", "Развернутый лонгрид"])
     
     if st.button("📝 Создать текст", type="primary", use_container_width=True):
-        if not text_topic.strip(): st.warning("⚠️ Введите тему текста.")
+        if not text_topic.strip(): 
+            st.warning("⚠️ Введите тему текста.")
         else:
             with st.spinner("✍️ Писатель ИИ формулирует структуру и пишет текст..."):
                 try:
@@ -140,7 +141,8 @@ with tab2:
                     text_out = res.choices.message.content if hasattr(res, 'choices') else res['choices']['message']['content']
                     st.success("🎉 Текст успешно написан!")
                     st.markdown(text_out)
-                except Exception as e: st.error(f"Ошибка: {str(e)}")
+                except Exception as e: 
+                    st.error(f"Ошибка: {str(e)}")
 
 # --- ВКЛАДКА 3: КУЛИНАРНЫЕ РЕЦЕПТЫ С ИКОНКАМИ ---
 with tab3:
@@ -149,7 +151,8 @@ with tab3:
     diet_pref = st.multiselect("Особые предпочтения (необязательно):", ["Без глютена", "Вегетарианское", "ПП / Низкокалорийное", "Быстро (до 20 мин)"])
     
     if st.button("🍳 Сформировать рецепт", type="primary", use_container_width=True):
-        if not dish_name.strip(): st.warning("⚠️ Введите название блюда.")
+        if not dish_name.strip(): 
+            st.warning("⚠️ Введите название блюда.")
         else:
             with st.spinner("👩‍🍳 Шеф-повар ИИ составляет идеальные пропорции и подбирает иконки..."):
                 try:
@@ -163,7 +166,8 @@ with tab3:
                     recipe_out = res.choices.message.content if hasattr(res, 'choices') else res['choices']['message']['content']
                     st.success("👨‍🍳 Рецепт готов!")
                     st.markdown(recipe_out)
-                except Exception as e: st.error(f"Ошибка: {str(e)}")
+                except Exception as e: 
+                    st.error(f"Ошибка: {str(e)}")
 
 # --- ВКЛАДКА 4: ГЕНЕРАЦИЯ МЕДИА (ФОТО И ВИДЕО) ---
 with tab4:
@@ -172,20 +176,21 @@ with tab4:
     media_type = st.radio("Что сгенерировать?", ["Высокоточное Фото (FLUX)", "Анимация (Короткое видео / GIF)"])
     
     if st.button("🎨 Начать визуализацию", type="primary", use_container_width=True):
-        if not media_prompt.strip(): st.warning("⚠️ Укажите описание сцены.")
+        if not media_prompt.strip(): 
+            st.warning("⚠️ Укажите описание сцены.")
         else:
             with st.spinner("🚀 ИИ обрабатывает промпт и генерирует медиафайл..."):
                 try:
-                    # Теперь возвращается строго КОРРОТКИЙ промпт (до 15 слов)
                     enhanced_desc = enhance_and_translate(media_prompt, mode="image")
                     seed = random.randint(1, 999999)
                     
                     if media_type == "Высокоточное Фото (FLUX)":
-                        # Обычное фото высокого качества
                         full_style = f"{enhanced_desc}, high quality photography"
                         encoded_param = urllib.parse.quote_plus(full_style)
                         media_url = f"https://pollinations.ai{encoded_param}?width=768&height=432&seed={seed}&model=flux&nologo=true"
                     else:
-                        # Анимация / Видео-эффект
                         full_style = f"{enhanced_desc}, simple motion animation loop"
                         encoded_param = urllib.parse.quote_plus(full_style)
+                        media_url = f"https://pollinations.ai{encoded_param}?width=512&height=512&seed={seed}&nologo=true"
+                        
+                    res = requests.get(media_url)
