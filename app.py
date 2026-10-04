@@ -78,7 +78,7 @@ st.markdown("<p class='sub-title'>Мгновенное создание кода
 tab1, tab2 = st.tabs(["🛠 Разработка кода", "ℹ️ Инструкция по запуску"])
 
 with tab1:
-    col1, col2 = st.columns()
+    col1, col2 = st.columns(2)
     
     with col1:
         category = st.radio(
