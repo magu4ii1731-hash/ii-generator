@@ -29,12 +29,11 @@ if "GROQ_API_KEY" not in st.secrets:
              "Бесплатный ключ: https://console.groq.com/keys")
     st.stop()
 
-client = Groq(api_key=st.secrets["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
-"])
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # Опциональный ключ Pollinations (фото/видео). Бесплатно: https://enter.pollinations.ai
 # В Secrets: POLLINATIONS_API_KEY = "ваш_ключ"
-POLLINATIONS_KEY = st.secrets.get("sk_wIhXu6CX5LwxqV32qdaScHgSI3mLtMG9", "")
+POLLINATIONS_KEY = st.secrets.get("POLLINATIONS_API_KEY", "")
 
 st.markdown("""
     <style>
@@ -89,9 +88,14 @@ def enhance_and_translate(user_text):
         result = get_content(response)
         return result.replace('"', "").replace("'", "")
     except Exception:
-        return "beautiful scenery"
+        # Если перевод не удался — используем исходный текст (Pollinations понимает русский)
+        return user_text
 
 POLLINATIONS_BASE = "https://gen.pollinations.ai"
+
+def _auth_headers():
+    """Pollinations требует ключ через заголовок Authorization: Bearer, НЕ через ?token= в URL."""
+    return {"Authorization": f"Bearer {POLLINATIONS_KEY}"} if POLLINATIONS_KEY else {}
 
 def generate_image(media_prompt):
     """Генерация фото через Pollinations (FLUX). Возвращает (bytes, описание)."""
@@ -101,10 +105,8 @@ def generate_image(media_prompt):
     full_prompt = f"{cleaned}, high quality photography"
     encoded = urllib.parse.quote_plus(full_prompt)
     params = {"width": 768, "height": 432, "seed": seed, "model": "flux", "nologo": "true"}
-    if POLLINATIONS_KEY:
-        params["token"] = POLLINATIONS_KEY
     url = f"{POLLINATIONS_BASE}/image/{encoded}"
-    res = requests.get(url, params=params, timeout=120)
+    res = requests.get(url, params=params, headers=_auth_headers(), timeout=120)
     res.raise_for_status()
     return res.content, cleaned
 
@@ -121,11 +123,10 @@ def generate_video(media_prompt):
     seed = random.randint(1, 999999)
     full_prompt = f"{cleaned}, cinematic smooth motion"
     encoded = urllib.parse.quote_plus(full_prompt)
-    params = {"width": 512, "height": 512, "seed": seed, "nologo": "true", "token": POLLINATIONS_KEY}
+    params = {"width": 512, "height": 512, "seed": seed, "nologo": "true"}
     url = f"{POLLINATIONS_BASE}/video/{encoded}"
 
-    # Видео генерируется асинхронно: сначала может вернуться JSON со ссылкой на опрос
-    res = requests.get(url, params=params, timeout=300)
+    res = requests.get(url, params=params, headers=_auth_headers(), timeout=300)
     if res.status_code == 401:
         raise NeedPollinationsKey
     res.raise_for_status()
