@@ -6,7 +6,7 @@ import urllib.parse
 from PIL import Image
 import io
 
-# 1. Настройка конфигурации страницы
+# 1. Настройка конфигурации страницы (Первая команда Streamlit)
 st.set_page_config(
     page_title="ИИ-Комбайн: Текст, Код, Медиа & Поиск",
     page_icon="🧠",
@@ -14,7 +14,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Кастомные CSS-стили
+# 2. Инициализация памяти сессии (Session State), чтобы медиа файлы не исчезали
+if "generated_media" not in st.session_state:
+    st.session_state.generated_media = None
+if "meta_info" not in st.session_state:
+    st.session_state.meta_info = ""
+
+# 3. Кастомные CSS-стили
 st.markdown("""
     <style>
     .main-title {
@@ -40,14 +46,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Проверка безопасности API-ключа Groq
+# 4. Проверка безопасности API-ключа Groq
 if "GROQ_API_KEY" not in st.secrets:
     st.error("❌ Ошибка: API-ключ 'GROQ_API_KEY' не найден в Secrets хостинга!")
     st.stop()
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# 4. Оптимизированная функция перевода промптов
+# 5. Оптимизированная функция перевода промптов
 def enhance_and_translate(user_text, mode="image"):
     try:
         system_role = (
@@ -70,7 +76,7 @@ def enhance_and_translate(user_text, mode="image"):
     except:
         return "beautiful scenery"
 
-# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА
+# 6. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА
 def generate_media_payload(media_prompt, media_type):
     try:
         raw_desc = enhance_and_translate(media_prompt, mode="image")
@@ -98,7 +104,7 @@ def generate_media_payload(media_prompt, media_type):
     except Exception as e:
         return None, str(e)
 
-# 6. Боковая панель
+# 7. Боковая панель
 with st.sidebar:
     st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки Системы</h3></div>", unsafe_allow_html=True)
     model_choice = st.selectbox(
@@ -108,7 +114,7 @@ with st.sidebar:
     )
     temperature = st.slider("Креативность ответов:", 0.0, 1.0, 0.3, 0.1)
 
-# 7. Главный интерфейс
+# 8. Главный интерфейс
 st.markdown("<h1 class='main-title'>🧠 Универсальный ИИ-Комбайн X5</h1>", unsafe_allow_html=True)
 st.markdown("<p class='sub-title'>Кодинг, статьи, рецепты с иконками, генерация графики и умный поиск в интернете в единой панели</p>", unsafe_allow_html=True)
 
@@ -125,7 +131,7 @@ with tab1:
     st.markdown("### 🤖 Создание скриптов и чат-ботов")
     col1, col2 = st.columns(2)
     with col1:
-        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-крипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
+        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
     with col2:
         user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...", key="code_ta")
         
@@ -198,8 +204,3 @@ with tab4:
         if not media_prompt.strip(): 
             st.warning("⚠️ Укажите описание сцены.")
         else:
-            placeholder = st.empty()
-            with placeholder.container():
-                with st.spinner("🚀 Отправка запроса на графический кластер... Ожидайте отрисовки."):
-                    response_obj, meta_info = generate_media_payload(media_prompt, media_type)
-                    
