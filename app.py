@@ -3,6 +3,8 @@ from groq import Groq
 import requests
 import random
 import urllib.parse
+from PIL import Image
+import io
 
 # 1. Настройка конфигурации страницы
 st.set_page_config(
@@ -73,7 +75,7 @@ def generate_media_payload(media_prompt, media_type):
     try:
         raw_desc = enhance_and_translate(media_prompt, mode="image")
         
-        # Жесткая очистка: удаляем возможные склейки домена, которые генерирует ИИ
+        # Жесткая очистка доменов
         cleaned_desc = raw_desc.replace("pollinations.ai", "").replace("pollinations", "").strip()
         if cleaned_desc.startswith("p/"):
             cleaned_desc = cleaned_desc[2:]
@@ -123,9 +125,9 @@ with tab1:
     st.markdown("### 🤖 Создание скриптов и чат-ботов")
     col1, col2 = st.columns(2)
     with col1:
-        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-крипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
+        category = st.radio("Направление:", ("🤖 Telegram-бот (Python)", "🌐 Веб-скрипт (JavaScript)", "🎨 Верстка (HTML/CSS)", "🐍 Автоматизация (Python)"))
     with col2:
-        user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...")
+        user_prompt = st.text_area("Техническое задание (ТЗ) для кода:", height=130, placeholder="Например: Скрипт калькулятора кредита...", key="code_ta")
         
     if st.button("🚀 Сгенерировать код", type="primary", use_container_width=True):
         if not user_prompt.strip():
@@ -145,7 +147,7 @@ with tab1:
 with tab2:
     st.markdown("### 📝 Генератор статей и описаний для видео")
     text_mode = st.selectbox("Что нужно сгенерировать?", ["Полноценная статья/Пост", "SEO-описание для Видео (YouTube/Reels)", "Продающий текст"])
-    text_topic = st.text_input("Укажите тему или ключевые слова:")
+    text_topic = st.text_input("Укажите тему или ключевые слова:", key="text_ti")
     text_length = st.select_slider("Желаемый объем текста:", options=["Короткий", "Средний", "Развернутый лонгрид"])
     
     if st.button("📝 Создать текст", type="primary", use_container_width=True):
@@ -165,7 +167,7 @@ with tab2:
 # --- ВКЛАДКА 3: КУЛИНАРНЫЕ РЕЦЕПТЫ С ИКОНКАМИ ---
 with tab3:
     st.markdown("### 🍳 ИИ-Шеф: Создание интерактивных рецептов с эмодзи")
-    dish_name = st.text_input("Введите название блюда или доступные ингредиенты:", placeholder="Пример: Паста Карбонара или Курица, картошка, грибы")
+    dish_name = st.text_input("Введите название блюда или доступные ингредиенты:", placeholder="Пример: Паста Карбонара или Курица, картошка, грибы", key="dish_ti")
     diet_pref = st.multiselect("Особые предпочтения (необязательно):", ["Без глютена", "Вегетарианское", "ПП / Низкокалорийное", "Быстро (до 20 мин)"])
     
     if st.button("🍳 Сформировать рецепт", type="primary", use_container_width=True):
@@ -189,15 +191,14 @@ with tab3:
 # --- ВКЛАДКА 4: ГЕНЕРАЦИЯ МЕДИА (ФОТО И ВИДЕО) ---
 with tab4:
     st.markdown("### 🎨 Создание графики и анимаций по тексту")
-    media_prompt = st.text_input("Опишите сцену для графики (на русском):", placeholder="Пример: Парень и девушка идут по лесу...")
+    media_prompt = st.text_input("Опишите сцену для графики (на русском):", placeholder="Пример: Парень и девушка идут по лесу...", key="media_ti")
     media_type = st.radio("Что сгенерировать?", ["Высокоточное Фото (FLUX)", "Анимация (Короткое видео / GIF)"])
     
     if st.button("🎨 Начать визуализацию", type="primary", use_container_width=True):
         if not media_prompt.strip(): 
             st.warning("⚠️ Укажите описание сцены.")
         else:
-            with st.spinner("🚀 ИИ обрабатывает промпт и генерирует медиафайл..."):
-                response_obj, meta_info = generate_media_payload(media_prompt, media_type)
-                
-                if response_obj and response_obj.status_code == 200:
-                    st.success("🎉 Визуализация успешно завершена!")
+            # Исправлено: Добавлен явный визуальный контейнер st.empty() и вывод через PIL
+            placeholder = st.empty()
+            with placeholder.container():
+                with st.spinner("🚀 Отправка запроса на графический кластер... Ожидайте отрисовки."):
