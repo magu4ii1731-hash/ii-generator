@@ -4,7 +4,7 @@ import requests
 import random
 import urllib.parse
 
-# 1. Настройка конфигурации страницы (Первая команда Streamlit)
+# 1. Настройка конфигурации страницы
 st.set_page_config(
     page_title="ИИ-Комбайн: Текст, Код, Медиа & Поиск",
     page_icon="🧠",
@@ -45,22 +45,14 @@ if "GROQ_API_KEY" not in st.secrets:
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# 4. Оптимизированная функция перевода с ЖЕСТКИМ лимитом длины промпта
+# 4. Оптимизированная функция перевода промптов
 def enhance_and_translate(user_text, mode="image"):
     try:
-        if mode == "image":
-            system_role = (
-                "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
-                "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15-20 WORDS). Avoid long sentences, poetic descriptions, and meta-words like 'lush, sun-dappled, intricate, towering'. "
-                "Just output key objects separated by commas. Example output: 'young couple walking in forest, cinematic lighting, anime style'. "
-                "Output ONLY the final English words, no quotes, no explanations."
-            )
-        else:
-            system_role = (
-                "Translate the text to English for a short video animation. "
-                "Keep it under 15 words. Output ONLY the translation."
-            )
-            
+        system_role = (
+            "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
+            "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15-20 WORDS). Just output key objects separated by commas. "
+            "Output ONLY the final English words, no quotes, no explanations."
+        )
         response = client.chat.completions.create(
             model="qwen/qwen3.8-27b",
             messages=[
@@ -75,7 +67,27 @@ def enhance_and_translate(user_text, mode="image"):
     except:
         return "beautiful scenery"
 
-# 5. Боковая панель
+# 5. ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ МЕДИА (Решает проблему с отступами раз и навсегда)
+def generate_media_payload(media_prompt, media_type):
+    try:
+        enhanced_desc = enhance_and_translate(media_prompt, mode="image")
+        seed = random.randint(1, 999999)
+        
+        if media_type == "Высокоточное Фото (FLUX)":
+            full_style = f"{enhanced_desc}, high quality photography"
+            encoded_param = urllib.parse.quote_plus(full_style)
+            media_url = f"https://pollinations.ai{encoded_param}?width=768&height=432&seed={seed}&model=flux&nologo=true"
+        else:
+            full_style = f"{enhanced_desc}, simple motion animation loop"
+            encoded_param = urllib.parse.quote_plus(full_style)
+            media_url = f"https://pollinations.ai{encoded_param}?width=512&height=512&seed={seed}&nologo=true"
+            
+        res = requests.get(media_url)
+        return res, enhanced_desc
+    except Exception as e:
+        return None, str(e)
+
+# 6. Боковая панель
 with st.sidebar:
     st.markdown("<div class='sidebar-card'><h3>⚙️ Настройки Системы</h3></div>", unsafe_allow_html=True)
     model_choice = st.selectbox(
@@ -84,14 +96,11 @@ with st.sidebar:
         help="Выбор активной нейронной сети."
     )
     temperature = st.slider("Креативность ответов:", 0.0, 1.0, 0.3, 0.1)
-    st.markdown("---")
-    st.markdown("🌐 **Поиск в сети:** Бесплатный шлюз без ключей (Активен)")
 
-# 6. Главный интерфейс
+# 7. Главный интерфейс
 st.markdown("<h1 class='main-title'>🧠 Универсальный ИИ-Комбайн X5</h1>", unsafe_allow_html=True)
 st.markdown("<p class='sub-title'>Кодинг, статьи, рецепты с иконками, генерация графики и умный поиск в интернете в единой панели</p>", unsafe_allow_html=True)
 
-# Пять основных вкладок приложения
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🛠 Кодинг & Скрипты", 
     "📝 Текст & Копирайтинг", 
@@ -125,7 +134,7 @@ with tab1:
 
 # --- ВКЛАДКА 2: ГЕНЕРАЦИЯ ТЕКСТА И СТАТЕЙ ---
 with tab2:
-    st.markdown("### 📝 Генератор статей и описаний для видео")
+    st.markdown("### 📝 Генератор статей и описаний для video")
     text_mode = st.selectbox("Что нужно сгенерировать?", ["Полноценная статья/Пост", "SEO-описание для Видео (YouTube/Reels)", "Продающий текст"])
     text_topic = st.text_input("Укажите тему или ключевые слова:")
     text_length = st.select_slider("Желаемый объем текста:", options=["Короткий", "Средний", "Развернутый лонгрид"])
@@ -159,8 +168,7 @@ with tab3:
                     sys_prompt = (
                         f"Ты профессиональный ИИ-шеф. Создай подробный кулинарный рецепт на основе запроса: '{dish_name}'. "
                         f"Учти ограничения: {', '.join(diet_pref)}. "
-                        "ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Добавляй подходящую визуальную эмодзи-иконку перед КАЖДЫМ ингредиентом и перед КАЖДЫМ шагом приготовления "
-                        "(например: '🍅 Томаты - 2 шт.', '🔥 Шаг 1. Разогрейте духовку'). Сделай красивую разметку."
+                        "ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Добавляй подходящую визуальную эмодзи-иконку перед КАЖДЫМ ингредиентом и перед КАЖДЫМ шагом приготовления. Сделай красивую разметку."
                     )
                     res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=0.5)
                     recipe_out = res.choices.message.content if hasattr(res, 'choices') else res['choices']['message']['content']
@@ -180,17 +188,13 @@ with tab4:
             st.warning("⚠️ Укажите описание сцены.")
         else:
             with st.spinner("🚀 ИИ обрабатывает промпт и генерирует медиафайл..."):
-                try:
-                    enhanced_desc = enhance_and_translate(media_prompt, mode="image")
-                    seed = random.randint(1, 999999)
-                    
-                    if media_type == "Высокоточное Фото (FLUX)":
-                        full_style = f"{enhanced_desc}, high quality photography"
-                        encoded_param = urllib.parse.quote_plus(full_style)
-                        media_url = f"https://pollinations.ai{encoded_param}?width=768&height=432&seed={seed}&model=flux&nologo=true"
-                    else:
-                        full_style = f"{enhanced_desc}, simple motion animation loop"
-                        encoded_param = urllib.parse.quote_plus(full_style)
-                        media_url = f"https://pollinations.ai{encoded_param}?width=512&height=512&seed={seed}&nologo=true"
-                    
-                    res = requests.get(media_url)
+                # Вызываем изолированную функцию
+                response_obj, meta_info = generate_media_payload(media_prompt, media_type)
+                
+                if response_obj and response_obj.status_code == 200:
+                    st.success("🎉 Визуализация успешно завершена!")
+                    st.image(response_obj.content, caption=f"Оптимизированный промпт ИИ: {meta_info}")
+                    st.download_button("📥 Скачать файл", response_obj.content, file_name="ai_output.png", mime="image/png", use_container_width=True)
+                else:
+                    st.error(f"Не удалось сгенерировать медиафайл. Информация об ошибке: {meta_info}")
+
