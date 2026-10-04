@@ -6,7 +6,7 @@ import urllib.parse
 
 # 1. Настройка конфигурации страницы (Первая команда Streamlit)
 st.set_page_config(
-    page_title="ИИ-Комбайн 2026: Текст, Код, Медиа & Поиск",
+    page_title="ИИ-Комбайн: Текст, Код, Медиа & Поиск",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -45,13 +45,21 @@ if "GROQ_API_KEY" not in st.secrets:
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# 4. Внутренние утилиты для ИИ и перевода
+# 4. Оптимизированная функция перевода с ЖЕСТКИМ лимитом длины промпта
 def enhance_and_translate(user_text, mode="image"):
     try:
         if mode == "image":
-            system_role = "You are a professional prompt engineer. Translate the input to English and expand it with beautiful artistic details. Output ONLY the final English prompt."
+            system_role = (
+                "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
+                "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15-20 WORDS). Avoid long sentences, poetic descriptions, and meta-words like 'lush, sun-dappled, intricate, towering'. "
+                "Just output key objects separated by commas. Example output: 'young couple walking in forest, cinematic lighting, anime style'. "
+                "Output ONLY the final English words, no quotes, no explanations."
+            )
         else:
-            system_role = "You are an AI assistant. Translate the text to English. Output ONLY the translation."
+            system_role = (
+                "Translate the text to English for a short video animation. "
+                "Keep it under 15 words. Output ONLY the translation."
+            )
             
         response = client.chat.completions.create(
             model="qwen/qwen3.8-27b",
@@ -59,12 +67,14 @@ def enhance_and_translate(user_text, mode="image"):
                 {"role": "system", "content": system_role},
                 {"role": "user", "content": user_text}
             ],
-            temperature=0.3,
-            max_tokens=200
+            temperature=0.2, # Снизили температуру для строгости
+            max_tokens=60
         )
-        return response.choices[0].message.content.strip() if hasattr(response, 'choices') else response['choices']['message']['content'].strip()
+        result = response.choices.message.content.strip() if hasattr(response, 'choices') else response['choices']['message']['content'].strip()
+        # Очищаем от возможных кавычек, которые ИИ иногда добавляет
+        return result.replace('"', '').replace("'", "")
     except:
-        return user_text
+        return "beautiful scenery"
 
 # 5. Боковая панель
 with st.sidebar:
@@ -108,7 +118,7 @@ with tab1:
                 try:
                     sys_prompt = f"Ты Senior разработчик. Напиши чистый, рабочий код для '{category}' по ТЗ: {user_prompt}. Добавь комментарии."
                     res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=temperature)
-                    code_out = res.choices[0].message.content if hasattr(res, 'choices') else res['choices']['message']['content']
+                    code_out = res.choices.message.content if hasattr(res, 'choices') else res['choices']['message']['content']
                     st.success("🎉 Код успешно сгенерирован!")
                     st.code(code_out, language="python" if "Python" in category or "бот" in category.lower() else "javascript")
                 except Exception as e: st.error(f"Ошибка API: {str(e)}")
@@ -127,7 +137,7 @@ with tab2:
                 try:
                     sys_prompt = f"Ты профессиональный копирайтер. Напиши '{text_mode}' на тему: '{text_topic}'. Объем текста: {text_length}. Текст должен быть структурированным, интересным и грамотным."
                     res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=0.7)
-                    text_out = res.choices[0].message.content if hasattr(res, 'choices') else res['choices']['message']['content']
+                    text_out = res.choices.message.content if hasattr(res, 'choices') else res['choices']['message']['content']
                     st.success("🎉 Текст успешно написан!")
                     st.markdown(text_out)
                 except Exception as e: st.error(f"Ошибка: {str(e)}")
@@ -150,44 +160,32 @@ with tab3:
                         "(например: '🍅 Томаты - 2 шт.', '🔥 Шаг 1. Разогрейте духовку'). Сделай красивую разметку."
                     )
                     res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=0.5)
-                    recipe_out = res.choices[0].message.content if hasattr(res, 'choices') else res['choices']['message']['content']
+                    recipe_out = res.choices.message.content if hasattr(res, 'choices') else res['choices']['message']['content']
                     st.success("👨‍🍳 Рецепт готов!")
                     st.markdown(recipe_out)
                 except Exception as e: st.error(f"Ошибка: {str(e)}")
 
 # --- ВКЛАДКА 4: ГЕНЕРАЦИЯ МЕДИА (ФОТО И ВИДЕО) ---
 with tab4:
-    st.markdown("### 🎨 Создание графики и анимаций по фото/тексту")
-    media_prompt = st.text_input("Опишите сцену для графики (на русском):", placeholder="Пример: Космическая станция будущего...")
-    media_type = st.radio("Что сгенерировать?", ["Высокоточное Фото (FLUX)", "Анимация (Короткое видео)"])
-    uploaded_image = st.file_uploader("Для анимации фото (опционально) - загрузите картинку:", type=["png", "jpg", "jpeg"])
+    st.markdown("### 🎨 Создание графики и анимаций по тексту")
+    media_prompt = st.text_input("Опишите сцену для графики (на русском):", placeholder="Пример: Парень и девушка идут по лесу...")
+    media_type = st.radio("Что сгенерировать?", ["Высокоточное Фото (FLUX)", "Анимация (Короткое видео / GIF)"])
     
     if st.button("🎨 Начать визуализацию", type="primary", use_container_width=True):
-        if not media_prompt.strip() and not uploaded_image: st.warning("⚠️ Укажите описание или загрузите картинку.")
+        if not media_prompt.strip(): st.warning("⚠️ Укажите описание сцены.")
         else:
-            with st.spinner("🚀 Графический процессор ИИ генерирует пиксели..."):
+            with st.spinner("🚀 ИИ обрабатывает промпт и генерирует медиафайл..."):
                 try:
+                    # Теперь возвращается строго КОРРОТКИЙ промпт (до 15 слов)
                     enhanced_desc = enhance_and_translate(media_prompt, mode="image")
                     seed = random.randint(1, 999999)
                     
                     if media_type == "Высокоточное Фото (FLUX)":
-                        media_url = f"https://pollinations.ai{urllib.parse.quote_plus(enhanced_desc)}?width=768&height=432&seed={seed}&model=flux&nologo=true"
+                        # Обычное фото высокого качества
+                        full_style = f"{enhanced_desc}, high quality photography"
+                        encoded_param = urllib.parse.quote_plus(full_style)
+                        media_url = f"https://pollinations.ai{encoded_param}?width=768&height=432&seed={seed}&model=flux&nologo=true"
                     else:
-                        media_url = f"https://pollinations.ai{urllib.parse.quote_plus(enhanced_desc + ', animated gif loop')}?width=512&height=512&seed={seed}&nologo=true"
-                        
-                    res = requests.get(media_url)
-                    if res.status_code == 200:
-                        st.success("🎉 Визуализация завершена!")
-                        st.image(res.content, caption="Итоговый результат")
-                        st.download_button("📥 Скачать файл", res.content, file_name="ai_output.png", mime="image/png", use_container_width=True)
-                    else: st.error("Ошибка графического кластера.")
-                except Exception as e: st.error(f"Ошибка медиа: {str(e)}")
-
-# --- ВКЛАДКА 5: ПОИСК В ИНТЕРНЕТЕ ---
-with tab4: # Назначена на 5-ю по логике
-    pass 
-# Исправлено распределение вкладок:
-with tab5:
-    st.markdown("### 🌐 Живой ИИ-Поиск в Интернете (Без ограничений и API-ключей)")
-    search_query = st.text_input("Введите поисковый запрос (ИИ найдет свежие данные в сети и сделает выжимку):")
-    
+                        # Анимация / Видео-эффект
+                        full_style = f"{enhanced_desc}, simple motion animation loop"
+                        encoded_param = urllib.parse.quote_plus(full_style)
