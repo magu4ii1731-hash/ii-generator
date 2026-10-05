@@ -19,6 +19,18 @@ st.set_page_config(
 )
 
 # Инициализация состояния сессии
+# =====================================================================
+# РЕКЛАМА: вставьте свой HTML сюда или добавьте в Secrets ключ AD_CODE
+# =====================================================================
+AD_CODE = """
+<div style="text-align:center; padding:12px; border:2px dashed #f0c36d; border-radius:12px; background:#fffbe8;">
+  <span style="font-size:1.05rem;">📢 <b>Здесь может быть ваша реклама</b></span><br>
+  <span style="color:#999; font-size:0.85rem;">Отредактируйте переменную AD_CODE в коде приложения</span>
+</div>
+"""
+if "AD_CODE" in st.secrets:
+    AD_CODE = st.secrets["AD_CODE"]
+
 if "generated_media" not in st.session_state:
     st.session_state.generated_media = None      # байты файла
 if "meta_info" not in st.session_state:
@@ -40,25 +52,65 @@ POLLINATIONS_KEY = st.secrets.get("POLLINATIONS_API_KEY", "")
 
 st.markdown("""
     <style>
+    /* Фон приложения — мягкий градиент */
+    .stApp {
+        background: linear-gradient(120deg, #fdfbfb 0%, #f5f7fa 50%, #eef1f5 100%);
+    }
+    /* Заголовок с градиентом */
     .main-title {
-        font-size: 2.8rem !important;
-        font-weight: 800;
-        background: linear-gradient(90deg, #FF4B4B, #FF8585);
+        font-size: 3rem !important;
+        font-weight: 900;
+        background: linear-gradient(90deg, #FF4B4B, #FF8585, #ffa07a);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.3rem;
+        letter-spacing: -1px;
     }
     .sub-title {
-        color: #7f8c8d;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
+        color: #6c7a80;
+        font-size: 1.15rem;
+        margin-bottom: 1.5rem;
     }
-    .sidebar-card {
+    /* Карточки */
+    .sidebar-card, .ad-card {
         padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 10px;
+        background-color: #ffffff;
+        border-radius: 12px;
         border-left: 5px solid #FF4B4B;
         margin-bottom: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    /* Кнопки — градиентные, с тенью и эффектом при наведении */
+    .stButton > button {
+        background: linear-gradient(90deg, #FF4B4B, #FF7070) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.6rem 1.2rem !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 14px rgba(255,75,75,0.35) !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(255,75,75,0.45) !important;
+    }
+    /* Вкладки — акцентный цвет */
+    .stTabs [data-baseweb="tab-highlight"] {
+        background-color: #FF4B4B !important;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #FF4B4B !important;
+        font-weight: 700 !important;
+    }
+    /* Рекламный баннер */
+    .ad-banner {
+        margin: 1rem 0;
+        padding: 14px;
+        border: 2px dashed #f0c36d;
+        border-radius: 14px;
+        background: #fffbe8;
+        text-align: center;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -240,13 +292,39 @@ def run_text_tab(model_choice):
                 except Exception as e:
                     st.error(f"Ошибка: {e}")
 
+def clean_md(text):
+    """Убирает markdown-разметку, эмодзи-модификаторы (U+FE0F, U+20E3) из строки."""
+    for ch in ("**", "__", "`"):
+        text = text.replace(ch, "")
+    return text.replace("\uFE0F", "").replace("\u20E3", "").strip()
+
 def extract_steps(recipe_text):
-    """Извлекает нумерованные шаги приготовления из текста рецепта."""
+    """Извлекает шаги приготовления: 'N.', 'N)', 'Шаг N:', эмодзи-цифры (1️⃣). Ингредиенты пропускает."""
     steps = []
+    # признак строки-ингредиента: '— 500 г', '— 2 ст. л.' и т.п.
+    ingredient_re = re.compile(r"\u2014\s*[\d\s/.]+\s*(?:г|гр|кг|мл|л|шт|щепот|ч\.?\s*л|ст\.?\s*л)\b", re.IGNORECASE)
     for line in recipe_text.splitlines():
-        m = re.match(r"^\s*(?:\d+|Шаг\s*\d+)\s*[.):\]]\s*(.+)", line, re.IGNORECASE)
-        if m and len(m.group(1).strip()) > 5:
-            steps.append(m.group(1).strip())
+        s = line.strip()
+        if not s:
+            continue
+        # эмодзи-цифра ('1️⃣ текст') — пунктуация после номера не нужна
+        emoji_num = bool(re.match(r"^[0-9][\uFE0F\u20E3]+", s))
+        # нормализуем эмодзи-цифры: '1️⃣' / '1⃣' -> '1'
+        s = re.sub(r"^([0-9])[\uFE0F\u20E3]+", r"\1", s)
+        # нумерованные строки: 'N.', 'N)', 'Шаг N:' — точка обязательна, если не эмодзи-формат
+        punct = r"[.):]" if not emoji_num else r"[.):]?"
+        m = re.match(r"^(?:Шаг\s*)?(\d+)\s*" + punct + r"\s*(.+)", s, re.IGNORECASE)
+        if not m:
+            continue
+        step = clean_md(m.group(2))
+        if len(step) <= 5:
+            continue
+        low = step.lower()
+        if low.startswith(("ингредиент", "приготовлен", "совет", "подач", "шаги")):
+            continue
+        if ingredient_re.search(step):
+            continue
+        steps.append(step)
     return steps
 
 def run_recipes_tab(model_choice):
@@ -264,7 +342,10 @@ def run_recipes_tab(model_choice):
                     sys_prompt = (
                         f"Ты профессиональный ИИ-шеф. Создай подробный кулинарный рецепт на основе запроса: '{dish_name}'. "
                         f"Учти ограничения: {restrictions}. "
-                        "ОБЯЗАТЕЛЬНО: добавляй подходящую эмодзи-иконку перед КАЖДЫМ ингредиентом и перед КАЖДЫМ шагом приготовления."
+                        "Структура: сначала список ингредиентов (перед каждым — эмодзи), "
+                        "затем нумерованный список шагов приготовления. "
+                        "ВАЖНО: каждый шаг начинай с новой строки строго в формате '1. текст шага', '2. текст шага' и т.д. "
+                        "Эмодзи ставь внутри текста шага, но НЕ перед его номером. Без markdown-заголовков внутри списка шагов."
                     )
                     res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=0.5)
                     recipe_text = get_content(res)
@@ -365,6 +446,7 @@ def run_media_tab():
 def main():
     st.markdown('<div class="main-title">🧠 ИИ-Комбайн</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-title">Тексты, код, рецепты, фото и видео — всё в одном приложении</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="ad-banner">{AD_CODE}</div>', unsafe_allow_html=True)
 
     with st.sidebar:
         st.markdown("#### ⚙️ Настройки ИИ (Groq)")
@@ -375,6 +457,10 @@ def main():
             index=0
         )
         temperature = st.slider("Креативность (temperature):", 0.0, 1.0, 0.7, 0.1)
+        st.divider()
+        st.markdown('<div class="ad-card">', unsafe_allow_html=True)
+        st.markdown(AD_CODE, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         st.divider()
         st.caption("🔑 GROQ_API_KEY — в Secrets хостинга.")
 
@@ -388,6 +474,8 @@ def main():
         run_recipes_tab(model_choice)
     with tab_media:
         run_media_tab()
+
+    st.markdown(f'<div class="ad-banner">{AD_CODE}</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
