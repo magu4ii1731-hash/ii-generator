@@ -5,6 +5,7 @@ import random
 import urllib.parse
 import time
 import io
+import re
 from PIL import Image
 
 # =====================================================================
@@ -70,28 +71,31 @@ def get_content(response):
     return response.choices[0].message.content.strip()
 
 def enhance_and_translate(user_text):
-    """Переводит русский промпт в короткий английский для генерации медиа."""
-    try:
-        system_role = (
-            "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
-            "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15 WORDS). Just output key objects separated by commas. "
-            "DO NOT include any URLs, website names, or domains in your response. "
-            "Output ONLY the final English words, no quotes, no explanations."
-        )
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[
-                {"role": "system", "content": system_role},
-                {"role": "user", "content": user_text}
-            ],
-            temperature=0.1,
-            max_tokens=40
-        )
-        result = get_content(response)
-        return result.replace('"', "").replace("'", "")
-    except Exception:
-        # Если перевод не удался — используем исходный текст (Pollinations понимает русский)
-        return user_text
+    """Переводит русский промпт в короткий английский. Пробует несколько моделей, в конце — исходный текст."""
+    system_role = (
+        "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
+        "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15 WORDS). Just output key objects separated by commas. "
+        "DO NOT include any URLs, website names, or domains in your response. "
+        "Output ONLY the final English words, no quotes, no explanations."
+    )
+    for model in ("openai/gpt-oss-20b", "qwen/qwen3.8-27b", "openai/gpt-oss-120b"):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_role},
+                    {"role": "user", "content": user_text}
+                ],
+                temperature=0.1,
+                max_tokens=40
+            )
+            result = get_content(response).replace("*", "").replace("#", "")
+            if result:
+                return result.replace('"', "").replace("'", "")
+        except Exception:
+            continue
+    # Если все модели недоступны — используем исходный текст (Pollinations понимает русский)
+    return user_text
 
 POLLINATIONS_BASE = "https://gen.pollinations.ai"
 
@@ -112,23 +116,34 @@ def generate_image(media_prompt):
     res.raise_for_status()
     return res.content, cleaned
 
-def generate_animation_gif(media_prompt, frames=6):
-    """Бесплатная 'ожившая' анимация: N кадров через FLUX -> анимированный GIF. Возвращает (bytes, описание)."""
+def make_gif_from_image(img_bytes, frames=24, max_zoom=1.2):
+    """Создаёт плавный зум (Ken Burns) из одного фото -> анимированный GIF."""
+    base = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    w, h = base.size
+    gif_frames = []
+    for i in range(frames):
+        t = i / (frames - 1)
+        scale = 1 + (max_zoom - 1) * t
+        nw, nh = max(1, int(w / scale)), max(1, int(h / scale))
+        x = int((w - nw) * t / 2)
+        y = int((h - nh) * t / 2)
+        frame = base.crop((x, y, x + nw, y + nh)).resize((w, h), Image.LANCZOS)
+        gif_frames.append(frame)
+    buf = io.BytesIO()
+    gif_frames[0].save(buf, format="GIF", save_all=True, append_images=gif_frames[1:], duration=90, loop=0)
+    return buf.getvalue()
+
+def generate_animation_gif(media_prompt):
+    """Бесплатная анимация: 1 фото по запросу -> плавный зум -> GIF. Возвращает (bytes, описание)."""
     raw_desc = enhance_and_translate(media_prompt)
     cleaned = raw_desc.replace("pollinations", "").strip()
     seed = random.randint(1, 999999)
-    images = []
-    for i in range(frames):
-        motion = f", frame {i + 1} of {frames}, subtle motion, cinematic"
-        encoded = urllib.parse.quote_plus(cleaned + motion)
-        params = {"width": 512, "height": 512, "seed": seed, "model": "flux", "nologo": "true"}
-        url = f"{POLLINATIONS_BASE}/image/{encoded}"
-        res = requests.get(url, params=params, headers=_auth_headers(), timeout=120)
-        res.raise_for_status()
-        images.append(Image.open(io.BytesIO(res.content)).convert("RGB"))
-    buf = io.BytesIO()
-    images[0].save(buf, format="GIF", save_all=True, append_images=images[1:], duration=400, loop=0)
-    return buf.getvalue(), cleaned
+    encoded = urllib.parse.quote_plus(f"{cleaned}, cinematic scene")
+    params = {"width": 512, "height": 512, "seed": seed, "model": "flux", "nologo": "true"}
+    url = f"{POLLINATIONS_BASE}/image/{encoded}"
+    res = requests.get(url, params=params, headers=_auth_headers(), timeout=120)
+    res.raise_for_status()
+    return make_gif_from_image(res.content), cleaned
 
 
 class NeedPollinationsKey(Exception):
@@ -225,6 +240,15 @@ def run_text_tab(model_choice):
                 except Exception as e:
                     st.error(f"Ошибка: {e}")
 
+def extract_steps(recipe_text):
+    """Извлекает нумерованные шаги приготовления из текста рецепта."""
+    steps = []
+    for line in recipe_text.splitlines():
+        m = re.match(r"^\s*(?:\d+|Шаг\s*\d+)\s*[.):\]]\s*(.+)", line, re.IGNORECASE)
+        if m and len(m.group(1).strip()) > 5:
+            steps.append(m.group(1).strip())
+    return steps
+
 def run_recipes_tab(model_choice):
     st.markdown("### 🍳 ИИ-Шеф: Рецепты с эмодзи")
     dish_name = st.text_input("Введите название блюда или доступные ингредиенты:", placeholder="Пример: Паста Карбонара или Курица, картошка, грибы", key="dish_ti")
@@ -243,8 +267,26 @@ def run_recipes_tab(model_choice):
                         "ОБЯЗАТЕЛЬНО: добавляй подходящую эмодзи-иконку перед КАЖДЫМ ингредиентом и перед КАЖДЫМ шагом приготовления."
                     )
                     res = client.chat.completions.create(model=model_choice, messages=[{"role": "user", "content": sys_prompt}], temperature=0.5)
+                    recipe_text = get_content(res)
                     st.success("👨‍🍳 Рецепт готов!")
-                    st.markdown(get_content(res))
+                    st.markdown(recipe_text)
+
+                    # Фото приготовления по шагам, в порядке следования
+                    with_photos = st.checkbox("📸 Добавить фото приготовления по шагам", value=True, key="recipe_photos_cb")
+                    steps = extract_steps(recipe_text)
+                    if with_photos:
+                        if not steps:
+                            st.info("ℹ️ Нумерованные шаги не найдены — фото сгенерировать не удалось.")
+                        else:
+                            st.markdown("#### 📸 Приготовление по шагам")
+                            for idx, step in enumerate(steps[:8], 1):
+                                with st.spinner(f"📸 Генерирую фото шага {idx} из {min(len(steps), 8)}..."):
+                                    try:
+                                        img_bytes, _ = generate_image(f"{dish_name}: {step}, appetizing food photography")
+                                        st.image(img_bytes, caption=f"Шаг {idx}: {step}", use_container_width=True)
+                                    except Exception as ex:
+                                        st.warning(f"⚠️ Не удалось сгенерировать фото шага {idx}: {ex}")
+                                time.sleep(1)
                 except Exception as e:
                     st.error(f"Ошибка: {e}")
 
