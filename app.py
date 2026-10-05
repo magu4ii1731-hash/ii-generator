@@ -22,14 +22,25 @@ st.set_page_config(
 # =====================================================================
 # РЕКЛАМА: вставьте свой HTML сюда или добавьте в Secrets ключ AD_CODE
 # =====================================================================
-AD_CODE = """
+AD_PLACEHOLDER = """
 <div style="text-align:center; padding:12px; border:2px dashed #f0c36d; border-radius:12px; background:#fffbe8;">
   <span style="font-size:1.05rem;">📢 <b>Здесь может быть ваша реклама</b></span><br>
   <span style="color:#999; font-size:0.85rem;">Отредактируйте переменную AD_CODE в коде приложения</span>
 </div>
 """
+
+def _validate_ad(html):
+    """Отсекаем рекламный код, который сломает страницу (несбалансированные div, script-iframe)."""
+    import re as _re
+    if not html or "<script" in html.lower() or "<iframe" in html.lower():
+        return AD_PLACEHOLDER
+    if len(_re.findall(r"<div\b", html)) != len(_re.findall(r"</div>", html)):
+        return AD_PLACEHOLDER
+    return html
+
+AD_CODE = AD_PLACEHOLDER
 if "AD_CODE" in st.secrets:
-    AD_CODE = st.secrets["AD_CODE"]
+    AD_CODE = _validate_ad(st.secrets["AD_CODE"])
 
 if "generated_media" not in st.session_state:
     st.session_state.generated_media = None      # байты файла
@@ -52,10 +63,6 @@ POLLINATIONS_KEY = st.secrets.get("POLLINATIONS_API_KEY", "")
 
 st.markdown("""
     <style>
-    /* Фон приложения — мягкий градиент */
-    .stApp {
-        background: linear-gradient(120deg, #fdfbfb 0%, #f5f7fa 50%, #eef1f5 100%);
-    }
     /* Заголовок с градиентом */
     .main-title {
         font-size: 3rem !important;
@@ -123,31 +130,8 @@ def get_content(response):
     return response.choices[0].message.content.strip()
 
 def enhance_and_translate(user_text):
-    """Переводит русский промпт в короткий английский. Пробует несколько моделей, в конце — исходный текст."""
-    system_role = (
-        "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
-        "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15 WORDS). Just output key objects separated by commas. "
-        "DO NOT include any URLs, website names, or domains in your response. "
-        "Output ONLY the final English words, no quotes, no explanations."
-    )
-    for model in ("openai/gpt-oss-20b", "qwen/qwen3.8-27b", "openai/gpt-oss-120b"):
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_role},
-                    {"role": "user", "content": user_text}
-                ],
-                temperature=0.1,
-                max_tokens=40
-            )
-            result = get_content(response).replace("*", "").replace("#", "")
-            if result:
-                return result.replace('"', "").replace("'", "")
-        except Exception:
-            continue
-    # Если все модели недоступны — используем исходный текст (Pollinations понимает русский)
-    return user_text
+    """Возвращает промпт как есть (Pollinations отлично понимает русский). Гарантированно 'то фото, которое нужно'."""
+    return user_text.replace("pollinations", "").strip()[:500]
 
 POLLINATIONS_BASE = "https://gen.pollinations.ai"
 
