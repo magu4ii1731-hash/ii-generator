@@ -458,9 +458,7 @@ def main():
         )
         temperature = st.slider("Креативность (temperature):", 0.0, 1.0, 0.7, 0.1)
         st.divider()
-        st.markdown('<div class="ad-card">', unsafe_allow_html=True)
-        st.markdown(AD_CODE, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="ad-card">{AD_CODE}</div>', unsafe_allow_html=True)
         st.divider()
         st.caption("🔑 GROQ_API_KEY — в Secrets хостинга.")
 
