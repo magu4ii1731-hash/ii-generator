@@ -4,6 +4,8 @@ import requests
 import random
 import urllib.parse
 import time
+import io
+from PIL import Image
 
 # =====================================================================
 # 1. КОНФИГУРАЦИЯ СТРАНИЦЫ
@@ -109,6 +111,25 @@ def generate_image(media_prompt):
     res = requests.get(url, params=params, headers=_auth_headers(), timeout=120)
     res.raise_for_status()
     return res.content, cleaned
+
+def generate_animation_gif(media_prompt, frames=6):
+    """Бесплатная 'ожившая' анимация: N кадров через FLUX -> анимированный GIF. Возвращает (bytes, описание)."""
+    raw_desc = enhance_and_translate(media_prompt)
+    cleaned = raw_desc.replace("pollinations", "").strip()
+    seed = random.randint(1, 999999)
+    images = []
+    for i in range(frames):
+        motion = f", frame {i + 1} of {frames}, subtle motion, cinematic"
+        encoded = urllib.parse.quote_plus(cleaned + motion)
+        params = {"width": 512, "height": 512, "seed": seed, "model": "flux", "nologo": "true"}
+        url = f"{POLLINATIONS_BASE}/image/{encoded}"
+        res = requests.get(url, params=params, headers=_auth_headers(), timeout=120)
+        res.raise_for_status()
+        images.append(Image.open(io.BytesIO(res.content)).convert("RGB"))
+    buf = io.BytesIO()
+    images[0].save(buf, format="GIF", save_all=True, append_images=images[1:], duration=400, loop=0)
+    return buf.getvalue(), cleaned
+
 
 class NeedPollinationsKey(Exception):
     """Видео требует бесплатный ключ Pollinations."""
@@ -229,20 +250,29 @@ def run_recipes_tab(model_choice):
 
 def run_media_tab():
     st.markdown("### 🎨 Генерация фото и видео по тексту")
-    st.caption("Фото — без ключа. Видео требует бесплатный ключ Pollinations (https://enter.pollinations.ai) → добавьте его в Secrets как POLLINATIONS_API_KEY.")
+    st.caption("Фото и GIF-анимация — бесплатно. Видео MP4 платное (нужен Pollen на балансе): https://enter.pollinations.ai")
     media_prompt = st.text_input("Опишите сцену (на русском):", placeholder="Пример: Парень и девушка идут по лесу...", key="media_ti")
-    media_type = st.radio("Что сгенерировать?", ["Высокоточное Фото (FLUX)", "🎬 Видео (MP4)"], horizontal=True)
+    media_type = st.radio(
+        "Что сгенерировать?",
+        ["Высокоточное Фото (FLUX)", "🎞️ Анимация GIF (бесплатно)", "🎬 Видео MP4 (платно, нужен Pollen)"],
+        horizontal=True
+    )
 
     if st.button("🎨 Начать генерацию", type="primary", use_container_width=True, key="gen_media_btn"):
         if not media_prompt.strip():
             st.warning("⚠️ Укажите описание сцены.")
         else:
             try:
-                if media_type == "🎬 Видео (MP4)":
+                if media_type == "🎬 Видео MP4 (платно, нужен Pollen)":
                     with st.spinner("🎬 Генерация видео занимает 1–3 минуты, не закрывайте страницу..."):
                         content, info = generate_video(media_prompt)
                         st.session_state.generated_media = content
                         st.session_state.current_media_type = "video"
+                elif media_type == "🎞️ Анимация GIF (бесплатно)":
+                    with st.spinner(f"🎞️ Генерирую 6 кадров и собираю GIF (~1 минута)..."):
+                        content, info = generate_animation_gif(media_prompt)
+                        st.session_state.generated_media = content
+                        st.session_state.current_media_type = "gif"
                 else:
                     with st.spinner("🚀 Генерация фото..."):
                         content, info = generate_image(media_prompt)
@@ -272,6 +302,9 @@ def run_media_tab():
         if st.session_state.current_media_type == "video":
             st.video(st.session_state.generated_media)
             ext, mime = "mp4", "video/mp4"
+        elif st.session_state.current_media_type == "gif":
+            st.image(st.session_state.generated_media, use_container_width=True)
+            ext, mime = "gif", "image/gif"
         else:
             st.image(st.session_state.generated_media, use_container_width=True)
             ext, mime = "png", "image/png"
