@@ -130,8 +130,37 @@ def get_content(response):
     return response.choices[0].message.content.strip()
 
 def enhance_and_translate(user_text):
-    """Возвращает промпт как есть (Pollinations отлично понимает русский). Гарантированно 'то фото, которое нужно'."""
-    return user_text.replace("pollinations", "").strip()[:500]
+    """Переводит промпт на английский (FLUX плохо понимает русский и рисует 'не то').
+    Сначала пробуем обычную модель qwen; если недоступна — reasoning-модель gpt-oss
+    (у неё ответ после рассуждений, поэтому берём последнюю строку)."""
+    system_role = (
+        "You are a prompt translator. Translate the user input into a short, concise English image prompt. "
+        "CRITICAL: The prompt must be VERY SHORT (MAXIMUM 15 WORDS). Just output key objects separated by commas. "
+        "DO NOT include any URLs, website names, or domains in your response. "
+        "Output ONLY the final English words, no quotes, no explanations."
+    )
+    for model, max_tok in (("qwen/qwen3.8-27b", 60), ("openai/gpt-oss-20b", 500)):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_role},
+                    {"role": "user", "content": user_text}
+                ],
+                temperature=0.1,
+                max_tokens=max_tok
+            )
+            result = get_content(response).replace("*", "").replace("#", "").strip()
+            if model == "openai/gpt-oss-20b":
+                # у reasoning-модели перевод — в последней непустой строке ответа
+                lines = [l.strip() for l in result.splitlines() if l.strip()]
+                result = lines[-1] if lines else ""
+            if 0 < len(result) < 300:
+                return result.replace('"', "").replace("'", "")
+        except Exception:
+            continue
+    # Все модели недоступны — отдаём короткий исходный текст
+    return user_text.replace("pollinations", "").strip()[:200]
 
 POLLINATIONS_BASE = "https://gen.pollinations.ai"
 
@@ -347,7 +376,8 @@ def run_recipes_tab(model_choice):
                             for idx, step in enumerate(steps[:8], 1):
                                 with st.spinner(f"📸 Генерирую фото шага {idx} из {min(len(steps), 8)}..."):
                                     try:
-                                        img_bytes, _ = generate_image(f"{dish_name}: {step}, appetizing food photography")
+                                        short_step = step[:120]
+                                        img_bytes, _ = generate_image(f"{dish_name}: {short_step}, appetizing food photography, close-up")
                                         st.image(img_bytes, caption=f"Шаг {idx}: {step}", use_container_width=True)
                                     except Exception as ex:
                                         st.warning(f"⚠️ Не удалось сгенерировать фото шага {idx}: {ex}")
